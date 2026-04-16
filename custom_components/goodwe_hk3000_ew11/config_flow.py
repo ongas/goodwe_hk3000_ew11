@@ -28,7 +28,7 @@ class HK3000ConfigFlow(config_entries.ConfigFlow):
     """Config flow for GoodWe HK3000 EW11 integration."""
 
     VERSION = 1
-    DOMAIN = DOMAIN
+    DOMAIN = "goodwe_hk3000_ew11"
 
     async def async_step_user(
         self, user_input: Dict[str, Any] | None = None
