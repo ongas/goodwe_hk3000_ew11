@@ -24,10 +24,11 @@ from .modbus_reader import HK3000Reader
 _LOGGER = logging.getLogger(__name__)
 
 
-class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class HK3000ConfigFlow(config_entries.ConfigFlow):
     """Config flow for GoodWe HK3000 EW11 integration."""
 
     VERSION = 1
+    DOMAIN = DOMAIN
 
     async def async_step_user(
         self, user_input: Dict[str, Any] | None = None
