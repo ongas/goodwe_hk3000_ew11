@@ -106,19 +106,19 @@ SENSOR_DEFINITIONS = {
     # Voltages
     "L1 Voltage": {
         "type": SensorType.VOLTAGE,
-        "unit": UnitOfElectricalPotential,
+        "unit": UnitOfElectricPotential,
         "icon": "mdi:flash",
         "phase": "L1",
     },
     "L2 Voltage": {
         "type": SensorType.VOLTAGE,
-        "unit": UnitOfElectricalPotential,
+        "unit": UnitOfElectricPotential,
         "icon": "mdi:flash",
         "phase": "L2",
     },
     "L3 Voltage": {
         "type": SensorType.VOLTAGE,
-        "unit": UnitOfElectricalPotential,
+        "unit": UnitOfElectricPotential,
         "icon": "mdi:flash",
         "phase": "L3",
     },
