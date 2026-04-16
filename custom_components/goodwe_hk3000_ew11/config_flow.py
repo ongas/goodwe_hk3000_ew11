@@ -1,4 +1,4 @@
-"""Config flow for GoodWe HK3000 Smart Meter integration."""
+"""Config flow for GoodWe HK3000 EW11 Smart Meter integration."""
 
 import logging
 from typing import Any, Dict
@@ -25,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow for GoodWe HK3000 integration."""
+    """Config flow for GoodWe HK3000 EW11 integration."""
 
     VERSION = 1
 
