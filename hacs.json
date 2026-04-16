@@ -1,0 +1,6 @@
+{
+  "name": "GoodWe HK3000 Smart Meter via EW11",
+  "homeassistant": "2024.1.0",
+  "iot_class": "local_polling",
+  "requirements": ["pymodbus>=3.3.0"]
+}

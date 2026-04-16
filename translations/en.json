@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to GoodWe HK3000",
+        "description": "Enter the IP address and configuration of your Elfin EW11 WiFi-RS485 bridge",
+        "data": {
+          "host": "EW11 IP Address",
+          "port": "EW11 TCP Port",
+          "slave_id": "HK3000 Modbus Address",
+          "update_interval": "Update Interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to EW11 bridge. Check IP address, port, and network connectivity."
+    }
+  }
+}
