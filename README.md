@@ -1,4 +1,4 @@
-# GoodWe HK3000 Smart Meter via Elfin EW11 — Home Assistant Integration
+# GoodWe HK3000 EW11 — Home Assistant Integration
 
 Real-time monitoring of **GoodWe HK3000** 3-phase smart meter electrical data via **Elfin EW11** WiFi-RS485 bridge integration for Home Assistant.
 
@@ -33,11 +33,11 @@ Real-time monitoring of **GoodWe HK3000** 3-phase smart meter electrical data vi
 4. Add repository: `https://github.com/ongas/goodwe_hk3000_ew11`
 5. Select category: **Integration**
 6. Click **Add**
-7. Search for **"GoodWe HK3000"** in HACS
+7. Search for **"GoodWe HK3000 EW11"** in HACS
 8. Click **Download**
 9. Restart Home Assistant (**Settings → System → Restart**)
 10. Go to **Settings → Devices & Services → Create Integration**
-11. Search for **"GoodWe HK3000"** and follow the config flow
+11. Search for **"GoodWe HK3000 EW11"** and follow the config flow
 
 During configuration, you only **need to enter the EW11's IP address**. All other settings have sensible defaults:
 - **EW11 TCP Port**: defaults to `8899`
@@ -51,7 +51,7 @@ During configuration, you only **need to enter the EW11's IP address**. All othe
 3. Copy the `goodwe_hk3000_ew11` folder to `~/.homeassistant/custom_components/`
 4. Restart Home Assistant (**Settings → System → Restart**)
 5. Go to **Settings → Devices & Services → Create Integration**
-6. Search for **"GoodWe HK3000"** and follow the config flow
+6. Search for **"GoodWe HK3000 EW11"** and follow the config flow
 
 ### Option 3: Git Clone
 
@@ -68,7 +68,7 @@ Once installed, add the integration via the UI:
 
 1. Go to **Settings → Devices & Services**
 2. Click **Create Integration**
-3. Search for **"GoodWe HK3000"**
+3. Search for **"GoodWe HK3000 EW11"**
 4. Follow the config flow:
    - **EW11 IP Address**: e.g., `192.168.0.67`
    - **EW11 TCP Port**: default `8899`
