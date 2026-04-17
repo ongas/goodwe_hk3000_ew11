@@ -29,10 +29,10 @@ COMPACT_REGISTERS = {
     "L2_ACTIVE_POWER": 7,     # 40104  L2 Active Power  int16 W
     "L3_ACTIVE_POWER": 8,     # 40105  L3 Active Power  int16 W
     "TOTAL_ACTIVE_POWER": 9,  # 40106  Total Active     int16 W
-    "L1_REACTIVE_POWER": 10,  # 40107  L1 Reactive      uint16 VAr
-    "L2_REACTIVE_POWER": 11,  # 40108  L2 Reactive      uint16 VAr
-    "L3_REACTIVE_POWER": 12,  # 40109  L3 Reactive      uint16 VAr
-    "TOTAL_REACTIVE_POWER": 13,  # 40110  Total Reactive   uint16 VAr
+    "L1_REACTIVE_POWER": 10,  # 40107  L1 Reactive      int16  VAr
+    "L2_REACTIVE_POWER": 11,  # 40108  L2 Reactive      int16  VAr
+    "L3_REACTIVE_POWER": 12,  # 40109  L3 Reactive      int16  VAr
+    "TOTAL_REACTIVE_POWER": 13,  # 40110  Total Reactive   int16  VAr
     "L1_APPARENT_POWER": 14,  # 40111  L1 Apparent      uint16 VA
     "L2_APPARENT_POWER": 15,  # 40112  L2 Apparent      uint16 VA
     "L3_APPARENT_POWER": 16,  # 40113  L3 Apparent      uint16 VA
