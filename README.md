@@ -109,6 +109,9 @@ The integration can configure the EW11 automatically. After adding the integrati
 
 All entities are created automatically with proper naming and units:
 
+### Total Active Power
+- `sensor.goodwe_hk3000_total_active_power` (W)
+
 ### Voltage (per phase + total)
 - `sensor.goodwe_hk3000_l1_voltage` (V)
 - `sensor.goodwe_hk3000_l2_voltage` (V)
@@ -119,11 +122,10 @@ All entities are created automatically with proper naming and units:
 - `sensor.goodwe_hk3000_l2_current` (A)
 - `sensor.goodwe_hk3000_l3_current` (A)
 
-### Active Power (per phase + total)
+### Active Power (per phase)
 - `sensor.goodwe_hk3000_l1_active_power` (W)
 - `sensor.goodwe_hk3000_l2_active_power` (W)
 - `sensor.goodwe_hk3000_l3_active_power` (W)
-- `sensor.goodwe_hk3000_total_active_power` (W)
 
 ### Reactive Power (per phase + total)
 - `sensor.goodwe_hk3000_l1_reactive_power` (VAr)
@@ -347,8 +349,6 @@ curl -u <admin-user>:<admin-password> -H "Content-Type: application/json" \
 | 2–3    | 346–347   | 40346–40347   | Import Active Energy  | kWh   |
 | 4–5    | 348–349   | 40348–40349   | Reactive Energy       | kVArh |
 | 6–7    | 350–351   | 40350–40351   | Apparent Energy       | kVAh  |
-
-> **Validated against SEMS portal:** Import ~14,450 vs 14,360 kWh (0.6% diff), Export ~66,066 vs 64,590 kWh (2.3% diff).
 
 ### HK3000 Register Map — Device Info Block
 
