@@ -274,7 +274,7 @@ The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames 
 | Route             | **uart**           | **uart**, log, custom             |
 | Security          | **Disable**        | **Disable**, TLS, AES, DES3       |
 
-> **Note:** The EW11 drops idle TCP connections based on the Timeout value. Set to 0 to disable, or implement auto-reconnect in your application. Even with Timeout=0, some firmware versions may still drop connections after ~30 seconds of inactivity.
+> **Note:** The EW11 drops idle TCP connections. This integration manages reconnecting.
 
 **System / WiFi Settings** (`http://<your-EW11-IP-Address>/system.html`):
 
@@ -295,17 +295,6 @@ The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames 
 | 20001 | Reload config | `{"CID":20001,"PL":{}}`                           |
 | 20003 | Restart       | `{"CID":20003,"PL":{}}`                           |
 
-```bash
-# Set transparent mode
-curl -u <admin-user>:<admin-password> -H "Content-Type: application/json" \
-  -d '{"CID":10005,"PL":{"UartProto":"NONE"}}' \
-  http://<your-EW11-IP-Address>/cmd
-
-# Apply changes
-curl -u <admin-user>:<admin-password> -H "Content-Type: application/json" \
-  -d '{"CID":20001,"PL":{}}' \
-  http://<your-EW11-IP-Address>/cmd
-```
 
 ### HK3000 Register Map — Compact Block (Instantaneous Electrical Data)
 
@@ -365,24 +354,6 @@ Registers at **address 520+** (register 40520+). ASCII encoded in lo-hi byte ord
 
 Beyond address 810 (register 40810), the measurement data aliases/mirrors every ~200 registers. Only the primary ranges documented above should be used.
 
-### Key Findings
-
-1. **No bus contention** — Despite the inverter and EW11 sharing the same RS485 terminals on the HK3000, testing with 200 rapid sequential client polls showed zero failures or collisions. The inverter likely uses a separate internal communication path.
-
-2. **FC 0x04 is broken** — Input register reads (function code 0x04) return the same 17 registers regardless of requested address or count. Use FC 0x03 (holding registers) only.
-
-3. **EW11 transparent mode is required** — Setting `UartProto` to `"NONE"` makes the EW11 a raw TCP↔RS485 bridge that passes unmodified RTU frames. The pymodbus client must use `FramerType.RTU` to construct proper Modbus RTU frames with CRC.
-
-4. **EW11 does not forward unsolicited bus traffic** — The EW11 transparently bridges only traffic from the connected TCP client to RS485. Passive sniffing cannot observe inverter-to-meter communication, as the EW11 does not forward unsolicited traffic from other RS485 masters (e.g., the inverter). This is a hardware/firmware limitation, not a protocol limitation.
-
-5. **Meter internal update rate is ~500ms** — The HK3000's registers update internally at approximately 500ms intervals. A 1-second client poll interval (with 2 reads per second) provides smooth real-time readings while minimizing network traffic.
-
-## References
-
-- **Modbus RTU Specification**: IEC 61131-3
-- **Elfin EW11 Documentation**: Device web interface for TCP/UART configuration
-- **Home Assistant Integration API**: https://developers.home-assistant.io/
-- **pymodbus Library**: https://github.com/pymodbus-dev/pymodbus
 
 ## License
 
