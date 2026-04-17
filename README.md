@@ -119,7 +119,7 @@ All entities are created automatically with proper naming and units:
 - `sensor.goodwe_hk3000_l1_active_power` (W)
 - `sensor.goodwe_hk3000_l2_active_power` (W)
 - `sensor.goodwe_hk3000_l3_active_power` (W)
-- `sensor.goodwe_hk3000_total_active_power` (W)
+- `sensor.goodwe_hk3000_grid_power` (W)
 
 ### Reactive Power (per phase + total)
 - `sensor.goodwe_hk3000_l1_reactive_power` (VAr)
