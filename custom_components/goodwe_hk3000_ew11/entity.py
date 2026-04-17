@@ -24,7 +24,6 @@ class HK3000Entity(CoordinatorEntity):
             name="GoodWe HK3000",
             manufacturer="GoodWe",
             model="HK3000",
-            sw_version="1.0",
         )
         
         # Add serial if available
