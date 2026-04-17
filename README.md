@@ -4,24 +4,24 @@ Real-time monitoring of **GoodWe HK3000** 3-phase smart meter electrical data vi
 
 ## Features
 
-✅ **Total Active Power**
+**Total Active Power**
 - Real-time 3-phase grid power consumption monitoring
 - Enabled by default for quick insight into household/building energy usage
 
-✅ **Real-time electrical data**
+**Real-time electrical data**
 - 3-phase voltage, current, active/reactive/apparent power  
 - Power factor and grid frequency
 - Per-phase + total measurements
 
-✅ **Energy monitoring**
+**Energy monitoring**
 - Import/export kWh totals
 - Reactive and apparent energy
 
-✅ **Automatic polling**
+**Automatic polling**
 - Configurable update interval (default 1s)
 - Failed connection auto-recovery
 
-✅ **Full HA integration**
+**Full HA integration**
 - Config flow setup (no YAML needed)
 - Proper entity naming and units
 - Device info with serial number
@@ -93,7 +93,7 @@ The EW11 must be in **transparent mode** for this integration to work.
 - Buffer Size: 512
 - Gap Time: 50 ms
 - Flow Control: **None**
-- **UART Protocol: NONE** ✅ (critical)
+- **UART Protocol: NONE**
 
 **Socket Settings** (`http://<EW11-IP>/socket.html`):
 - Protocol: **TCP-SERVER**
@@ -243,7 +243,7 @@ The GoodWe inverter is connected to the same RS485 terminals on the HK3000. Test
 
 ### EW11 Configuration Details
 
-The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames (with CRC) over TCP. This is critical — the default "Modbus" mode adds its own framing that breaks communication.
+The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames (with CRC) over TCP — the default "Modbus" mode adds its own framing that breaks communication.
 
 **Serial Port Settings** (`http://<your-EW11-IP-Address>/uart.html`):
 
@@ -259,7 +259,7 @@ The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames 
 | UART Protocol     | **NONE**           | **NONE**, Modbus, Frame            |
 | CLI Access        | Disable            | **Disable**, Serial-String, Always |
 
-> **⚠ Critical:** `UART Protocol` must be set to `NONE` (transparent mode). If set to `Modbus`, the EW11 adds Modbus TCP framing and will not pass raw RTU frames correctly.
+> `UART Protocol` must be set to `NONE` (transparent mode). If set to `Modbus`, the EW11 adds Modbus TCP framing and will not pass raw RTU frames correctly.
 
 **Socket Settings** (`http://<your-EW11-IP-Address>/socket.html`):
 
