@@ -169,7 +169,7 @@ SENSOR_DEFINITIONS = {
         "phase": "L3",
         "enabled_by_default": False,
     },
-    "Total Active Power": {
+    "Grid Power": {
         "type": SensorType.ACTIVE_POWER,
         "unit": UnitOfPower,
         "icon": "mdi:lightning-bolt",
@@ -269,7 +269,7 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfFrequency,
         "icon": "mdi:sine-wave",
         "phase": None,
-        "enabled_by_default": True,
+        "enabled_by_default": False,
     },
     # Energy
     "Total Export Energy": {
@@ -277,14 +277,14 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfEnergy,
         "icon": "mdi:transmission-tower-export",
         "phase": "total",
-        "enabled_by_default": True,
+        "enabled_by_default": False,
     },
     "Total Import Energy": {
         "type": SensorType.ENERGY_IMPORT,
         "unit": UnitOfEnergy,
         "icon": "mdi:transmission-tower-import",
         "phase": "total",
-        "enabled_by_default": True,
+        "enabled_by_default": False,
     },
     "Total Reactive Energy": {
         "type": SensorType.REACTIVE_ENERGY,
