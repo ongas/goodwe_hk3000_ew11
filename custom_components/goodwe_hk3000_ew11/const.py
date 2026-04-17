@@ -169,7 +169,7 @@ SENSOR_DEFINITIONS = {
         "phase": "L3",
         "enabled_by_default": False,
     },
-    "Grid Power": {
+    "Total Active Power": {
         "type": SensorType.ACTIVE_POWER,
         "unit": UnitOfPower,
         "icon": "mdi:lightning-bolt",
