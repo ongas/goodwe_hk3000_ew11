@@ -10,10 +10,24 @@
           "slave_id": "HK3000 Modbus Address",
           "update_interval": "Update Interval (seconds)"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure GoodWe HK3000",
+        "description": "Update the configuration of your Elfin EW11 WiFi-RS485 bridge",
+        "data": {
+          "host": "EW11 IP Address",
+          "port": "EW11 TCP Port",
+          "slave_id": "HK3000 Modbus Address",
+          "update_interval": "Update Interval (seconds)"
+        }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to EW11 bridge. Check IP address, port, and network connectivity."
+    },
+    "abort": {
+      "reconfigure_successful": "GoodWe HK3000 configuration updated successfully",
+      "reconfigure_failed": "Failed to reconfigure GoodWe HK3000"
     }
   }
 }
