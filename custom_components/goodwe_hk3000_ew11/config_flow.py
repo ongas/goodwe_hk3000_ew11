@@ -29,6 +29,13 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> HK3000OptionsFlow:
+        """Get the options flow for this integration."""
+        return HK3000OptionsFlow(config_entry)
+
     async def async_step_user(
         self, user_input: Dict[str, Any] | None = None
     ) -> FlowResult:
@@ -72,23 +79,25 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle import from configuration.yaml (if needed)."""
         return await self.async_step_user(import_data)
 
-    async def async_step_reconfigure(
-        self, user_input: Dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle reconfiguration of the integration."""
-        config_entry = self.hass.config_entries.async_get_entry(
-            self.context["entry_id"]
-        )
-        if config_entry is None:
-            return self.async_abort(reason="reconfigure_failed")
 
+class HK3000OptionsFlow(config_entries.OptionsFlow):
+    """Options flow for GoodWe HK3000 integration."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input: Dict[str, Any] | None = None) -> FlowResult:
+        """Handle options flow."""
         errors: Dict[str, str] = {}
 
         if user_input is not None:
             # Validate connection with new settings
-            host = user_input[CONF_HOST]
-            port = user_input.get(CONF_PORT, DEFAULT_PORT)
-            slave_id = user_input.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
+            host = user_input.get(CONF_HOST, self.config_entry.data.get(CONF_HOST))
+            port = user_input.get(CONF_PORT, self.config_entry.data.get(CONF_PORT, DEFAULT_PORT))
+            slave_id = user_input.get(
+                CONF_SLAVE_ID, self.config_entry.data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
+            )
 
             reader = HK3000Reader(host, port, slave_id)
             if not reader.connect():
@@ -96,18 +105,21 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 reader.disconnect()
             else:
                 reader.disconnect()
-                # Connection successful, update the entry
+                # Connection successful, update the entry data
                 self.hass.config_entries.async_update_entry(
-                    config_entry, data=user_input
+                    self.config_entry, data=user_input
                 )
-                await self.hass.config_entries.async_reload(config_entry.entry_id)
+                # Reload the integration to apply changes
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
                 return self.async_abort(reason="reconfigure_successful")
 
-        # Pre-fill form with current data
-        current_data = config_entry.data
+        # Get current values from config entry data
+        current_data = self.config_entry.data
         schema = vol.Schema(
             {
-                vol.Required(CONF_HOST, default=current_data.get(CONF_HOST)): str,
+                vol.Required(
+                    CONF_HOST, default=current_data.get(CONF_HOST)
+                ): str,
                 vol.Optional(
                     CONF_PORT, default=current_data.get(CONF_PORT, DEFAULT_PORT)
                 ): int,
@@ -122,7 +134,7 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="reconfigure",
+            step_id="init",
             data_schema=schema,
             errors=errors,
             description_placeholders={
