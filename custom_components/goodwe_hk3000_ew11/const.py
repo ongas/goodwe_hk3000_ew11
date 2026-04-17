@@ -109,18 +109,21 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfElectricPotential,
         "icon": "mdi:flash",
         "phase": "L1",
+        "enabled_by_default": False,
     },
     "L2 Voltage": {
         "type": SensorType.VOLTAGE,
         "unit": UnitOfElectricPotential,
         "icon": "mdi:flash",
         "phase": "L2",
+        "enabled_by_default": False,
     },
     "L3 Voltage": {
         "type": SensorType.VOLTAGE,
         "unit": UnitOfElectricPotential,
         "icon": "mdi:flash",
         "phase": "L3",
+        "enabled_by_default": False,
     },
     # Currents
     "L1 Current": {
@@ -128,18 +131,21 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfElectricalCurrent,
         "icon": "mdi:current-ac",
         "phase": "L1",
+        "enabled_by_default": False,
     },
     "L2 Current": {
         "type": SensorType.CURRENT,
         "unit": UnitOfElectricalCurrent,
         "icon": "mdi:current-ac",
         "phase": "L2",
+        "enabled_by_default": False,
     },
     "L3 Current": {
         "type": SensorType.CURRENT,
         "unit": UnitOfElectricalCurrent,
         "icon": "mdi:current-ac",
         "phase": "L3",
+        "enabled_by_default": False,
     },
     # Active Power
     "L1 Active Power": {
@@ -147,24 +153,28 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfPower,
         "icon": "mdi:lightning-bolt",
         "phase": "L1",
+        "enabled_by_default": False,
     },
     "L2 Active Power": {
         "type": SensorType.ACTIVE_POWER,
         "unit": UnitOfPower,
         "icon": "mdi:lightning-bolt",
         "phase": "L2",
+        "enabled_by_default": False,
     },
     "L3 Active Power": {
         "type": SensorType.ACTIVE_POWER,
         "unit": UnitOfPower,
         "icon": "mdi:lightning-bolt",
         "phase": "L3",
+        "enabled_by_default": False,
     },
     "Total Active Power": {
         "type": SensorType.ACTIVE_POWER,
         "unit": UnitOfPower,
         "icon": "mdi:lightning-bolt",
         "phase": "total",
+        "enabled_by_default": True,
     },
     # Reactive Power
     "L1 Reactive Power": {
@@ -172,24 +182,28 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfReactivePower,
         "icon": "mdi:sine-wave",
         "phase": "L1",
+        "enabled_by_default": False,
     },
     "L2 Reactive Power": {
         "type": SensorType.REACTIVE_POWER,
         "unit": UnitOfReactivePower,
         "icon": "mdi:sine-wave",
         "phase": "L2",
+        "enabled_by_default": False,
     },
     "L3 Reactive Power": {
         "type": SensorType.REACTIVE_POWER,
         "unit": UnitOfReactivePower,
         "icon": "mdi:sine-wave",
         "phase": "L3",
+        "enabled_by_default": False,
     },
     "Total Reactive Power": {
         "type": SensorType.REACTIVE_POWER,
         "unit": UnitOfReactivePower,
         "icon": "mdi:sine-wave",
         "phase": "total",
+        "enabled_by_default": False,
     },
     # Apparent Power
     "L1 Apparent Power": {
@@ -197,24 +211,28 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfApparentPower,
         "icon": "mdi:flash-outline",
         "phase": "L1",
+        "enabled_by_default": False,
     },
     "L2 Apparent Power": {
         "type": SensorType.APPARENT_POWER,
         "unit": UnitOfApparentPower,
         "icon": "mdi:flash-outline",
         "phase": "L2",
+        "enabled_by_default": False,
     },
     "L3 Apparent Power": {
         "type": SensorType.APPARENT_POWER,
         "unit": UnitOfApparentPower,
         "icon": "mdi:flash-outline",
         "phase": "L3",
+        "enabled_by_default": False,
     },
     "Total Apparent Power": {
         "type": SensorType.APPARENT_POWER,
         "unit": UnitOfApparentPower,
         "icon": "mdi:flash-outline",
         "phase": "total",
+        "enabled_by_default": False,
     },
     # Power Factor
     "L1 Power Factor": {
@@ -222,24 +240,28 @@ SENSOR_DEFINITIONS = {
         "unit": None,
         "icon": "mdi:percent",
         "phase": "L1",
+        "enabled_by_default": False,
     },
     "L2 Power Factor": {
         "type": SensorType.POWER_FACTOR,
         "unit": None,
         "icon": "mdi:percent",
         "phase": "L2",
+        "enabled_by_default": False,
     },
     "L3 Power Factor": {
         "type": SensorType.POWER_FACTOR,
         "unit": None,
         "icon": "mdi:percent",
         "phase": "L3",
+        "enabled_by_default": False,
     },
     "Total Power Factor": {
         "type": SensorType.POWER_FACTOR,
         "unit": None,
         "icon": "mdi:percent",
         "phase": "total",
+        "enabled_by_default": False,
     },
     # Frequency
     "Frequency": {
@@ -247,6 +269,7 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfFrequency,
         "icon": "mdi:sine-wave",
         "phase": None,
+        "enabled_by_default": True,
     },
     # Energy
     "Total Export Energy": {
@@ -254,23 +277,27 @@ SENSOR_DEFINITIONS = {
         "unit": UnitOfEnergy,
         "icon": "mdi:transmission-tower-export",
         "phase": "total",
+        "enabled_by_default": True,
     },
     "Total Import Energy": {
         "type": SensorType.ENERGY_IMPORT,
         "unit": UnitOfEnergy,
         "icon": "mdi:transmission-tower-import",
         "phase": "total",
+        "enabled_by_default": True,
     },
     "Total Reactive Energy": {
         "type": SensorType.REACTIVE_ENERGY,
         "unit": UnitOfReactiveEnergy,
         "icon": "mdi:sine-wave",
         "phase": "total",
+        "enabled_by_default": False,
     },
     "Total Apparent Energy": {
         "type": SensorType.APPARENT_ENERGY,
         "unit": UnitOfApparentEnergy,
         "icon": "mdi:flash-outline",
         "phase": "total",
+        "enabled_by_default": False,
     },
 }

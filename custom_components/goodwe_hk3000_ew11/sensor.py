@@ -39,6 +39,7 @@ class HK3000Sensor(HK3000Entity, SensorEntity):
         )
         self._attr_native_unit_of_measurement = description.get("unit")
         self._attr_icon = description.get("icon")
+        self._attr_entity_registry_enabled_default = description.get("enabled_by_default", False)
         self._sensor_type = description["type"]
         self._phase = description.get("phase")
 
