@@ -4,6 +4,10 @@ Real-time monitoring of **GoodWe HK3000** 3-phase smart meter electrical data vi
 
 ## Features
 
+✅ **Total Active Power**
+- Real-time 3-phase grid power consumption monitoring
+- Enabled by default for quick insight into household/building energy usage
+
 ✅ **Real-time electrical data**
 - 3-phase voltage, current, active/reactive/apparent power  
 - Power factor and grid frequency
