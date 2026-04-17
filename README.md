@@ -74,7 +74,7 @@ Once installed, add the integration via the UI:
 2. Click **Create Integration**
 3. Search for **"GoodWe HK3000 EW11"**
 4. Follow the config flow:
-   - **EW11 IP Address**: e.g., `192.168.0.67`
+   - **EW11 IP Address**: e.g., `192.168.1.100`
    - **EW11 TCP Port**: default `8899`
    - **HK3000 Modbus Address**: default `3`
    - **Update Interval**: default `1` second
@@ -359,7 +359,7 @@ Registers at **address 520+** (register 40520+). ASCII encoded in lo-hi byte ord
 | 520–524   | 40520–40524   | Serial number suffix (10 chars)        |
 | 534–546   | 40534–40546   | Cloud server address                   |
 
-> **Serial encoding:** Each register holds 2 ASCII characters in lo-hi byte order. The meter stores only the 10-character suffix (e.g., `XXXXXXXXXX`), not the full 16-character label serial (`93000HXXXXXXXXXX`). The `93000H` prefix is a manufacturing identifier not stored in Modbus registers.
+> **Serial encoding:** Each register holds 2 ASCII characters in lo-hi byte order. The meter stores only the 10-character suffix (e.g., `XXXXXXXXXX`), not the full 16-character label serial (`XXXXXXXXXXXXXX`). The prefix is a manufacturing identifier not stored in Modbus registers.
 
 ### Register Aliasing
 
