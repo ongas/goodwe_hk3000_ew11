@@ -71,3 +71,61 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_import(self, import_data: Dict[str, Any]) -> FlowResult:
         """Handle import from configuration.yaml (if needed)."""
         return await self.async_step_user(import_data)
+
+    async def async_step_reconfigure(
+        self, user_input: Dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle reconfiguration of the integration."""
+        config_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+        if config_entry is None:
+            return self.async_abort(reason="reconfigure_failed")
+
+        errors: Dict[str, str] = {}
+
+        if user_input is not None:
+            # Validate connection with new settings
+            host = user_input[CONF_HOST]
+            port = user_input.get(CONF_PORT, DEFAULT_PORT)
+            slave_id = user_input.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
+
+            reader = HK3000Reader(host, port, slave_id)
+            if not reader.connect():
+                errors["base"] = "cannot_connect"
+                reader.disconnect()
+            else:
+                reader.disconnect()
+                # Connection successful, update the entry
+                self.hass.config_entries.async_update_entry(
+                    config_entry, data=user_input
+                )
+                await self.hass.config_entries.async_reload(config_entry.entry_id)
+                return self.async_abort(reason="reconfigure_successful")
+
+        # Pre-fill form with current data
+        current_data = config_entry.data
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HOST, default=current_data.get(CONF_HOST)): str,
+                vol.Optional(
+                    CONF_PORT, default=current_data.get(CONF_PORT, DEFAULT_PORT)
+                ): int,
+                vol.Optional(
+                    CONF_SLAVE_ID, default=current_data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
+                ): int,
+                vol.Optional(
+                    CONF_UPDATE_INTERVAL,
+                    default=current_data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+                ): int,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "host_description": "IP address of the Elfin EW11 bridge",
+            },
+        )
