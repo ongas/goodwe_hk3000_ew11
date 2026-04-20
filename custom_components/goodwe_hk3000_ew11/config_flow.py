@@ -8,6 +8,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
 from .const import (
     CONF_HOST,
@@ -70,7 +71,9 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_HOST): str,
                 vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
                 vol.Optional(CONF_SLAVE_ID, default=DEFAULT_SLAVE_ID): int,
-                vol.Optional(CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL): vol.Coerce(float),
+                vol.Optional(CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL): NumberSelector(
+                    NumberSelectorConfig(min=0.1, max=300, step=0.1, mode=NumberSelectorMode.BOX)
+                ),
             }
         )
 
@@ -131,7 +134,9 @@ class HK3000OptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_UPDATE_INTERVAL,
                     default=current_data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
-                ): vol.Coerce(float),
+                ): NumberSelector(
+                    NumberSelectorConfig(min=0.1, max=300, step=0.1, mode=NumberSelectorMode.BOX)
+                ),
             }
         )
 
