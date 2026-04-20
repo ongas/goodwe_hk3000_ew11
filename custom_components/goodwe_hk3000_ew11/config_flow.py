@@ -1,12 +1,13 @@
 """Config flow for GoodWe HK3000 EW11 Smart Meter integration."""
 
+from __future__ import annotations
+
 import logging
-from typing import Any, Dict
+from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigFlowResult
 
 from .const import (
     CONF_HOST,
@@ -24,6 +25,15 @@ from .modbus_reader import HK3000Reader
 _LOGGER = logging.getLogger(__name__)
 
 
+def _test_connection(host: str, port: int, slave_id: int) -> bool:
+    """Test Modbus connection (runs in executor thread)."""
+    reader = HK3000Reader(host, port, slave_id)
+    try:
+        return reader.connect()
+    finally:
+        reader.disconnect()
+
+
 class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for GoodWe HK3000 EW11 integration."""
 
@@ -34,27 +44,25 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> HK3000OptionsFlow:
         """Get the options flow for this integration."""
-        return HK3000OptionsFlow(config_entry)
+        return HK3000OptionsFlow()
 
     async def async_step_user(
-        self, user_input: Dict[str, Any] | None = None
-    ) -> FlowResult:
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle a flow initiated by the user."""
-        errors: Dict[str, str] = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            # Validate connection
             host = user_input[CONF_HOST]
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
             slave_id = user_input.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
 
-            reader = HK3000Reader(host, port, slave_id)
-            if not reader.connect():
+            connected = await self.hass.async_add_executor_job(
+                _test_connection, host, port, slave_id
+            )
+            if not connected:
                 errors["base"] = "cannot_connect"
-                reader.disconnect()
             else:
-                reader.disconnect()
-                # Connection successful
                 return self.async_create_entry(title=DEFAULT_NAME, data=user_input)
 
         schema = vol.Schema(
@@ -75,7 +83,7 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_import(self, import_data: Dict[str, Any]) -> FlowResult:
+    async def async_step_import(self, import_data: dict[str, Any]) -> ConfigFlowResult:
         """Handle import from configuration.yaml (if needed)."""
         return await self.async_step_user(import_data)
 
@@ -83,37 +91,31 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class HK3000OptionsFlow(config_entries.OptionsFlow):
     """Options flow for GoodWe HK3000 integration."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
-    async def async_step_init(self, user_input: Dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle options flow."""
-        errors: Dict[str, str] = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            # Validate connection with new settings
             host = user_input.get(CONF_HOST, self.config_entry.data.get(CONF_HOST))
             port = user_input.get(CONF_PORT, self.config_entry.data.get(CONF_PORT, DEFAULT_PORT))
             slave_id = user_input.get(
                 CONF_SLAVE_ID, self.config_entry.data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
             )
 
-            reader = HK3000Reader(host, port, slave_id)
-            if not reader.connect():
+            connected = await self.hass.async_add_executor_job(
+                _test_connection, host, port, slave_id
+            )
+            if not connected:
                 errors["base"] = "cannot_connect"
-                reader.disconnect()
             else:
-                reader.disconnect()
-                # Connection successful, update the entry data
                 self.hass.config_entries.async_update_entry(
                     self.config_entry, data=user_input
                 )
-                # Reload the integration to apply changes
                 await self.hass.config_entries.async_reload(self.config_entry.entry_id)
                 return self.async_abort(reason="reconfigure_successful")
 
-        # Get current values from config entry data
         current_data = self.config_entry.data
         schema = vol.Schema(
             {

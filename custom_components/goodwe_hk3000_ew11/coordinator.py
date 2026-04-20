@@ -42,6 +42,13 @@ class HK3000Coordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=update_interval),
         )
 
+    def _sync_update(self) -> tuple[dict, list[str]]:
+        """Synchronous update (runs in executor thread)."""
+        if not self.reader.is_connected():
+            if not self.reader.connect():
+                return None, ["Cannot connect to EW11 bridge"]
+        return self.reader.read_meter_data()
+
     async def _async_update_data(self) -> dict:
         """Fetch data from the device.
         
@@ -52,13 +59,9 @@ class HK3000Coordinator(DataUpdateCoordinator):
             UpdateFailed: If data fetch fails.
         """
         try:
-            # Try to connect if not already connected
-            if not self.reader.is_connected():
-                if not self.reader.connect():
-                    raise UpdateFailed("Cannot connect to EW11 bridge")
-
-            # Read meter data
-            data, warnings = self.reader.read_meter_data()
+            data, warnings = await self.hass.async_add_executor_job(
+                self._sync_update
+            )
             if data is None:
                 error_msg = warnings[0] if warnings else "Unknown error reading meter"
                 raise UpdateFailed(error_msg)
@@ -69,8 +72,11 @@ class HK3000Coordinator(DataUpdateCoordinator):
 
             # Store device info (static, only fetch once)
             if not self.device_info:
-                self.device_info = self.reader.read_device_info()
-                if self.device_info:
+                info = await self.hass.async_add_executor_job(
+                    self.reader.read_device_info
+                )
+                if info:
+                    self.device_info = info
                     _LOGGER.debug("Device info: %s", self.device_info)
 
             return data
