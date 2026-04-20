@@ -21,7 +21,7 @@ class HK3000Coordinator(DataUpdateCoordinator):
         host: str,
         port: int,
         slave_id: int,
-        update_interval: int = DEFAULT_UPDATE_INTERVAL,
+        update_interval: float = DEFAULT_UPDATE_INTERVAL,
     ) -> None:
         """Initialize the coordinator.
         
@@ -30,7 +30,7 @@ class HK3000Coordinator(DataUpdateCoordinator):
             host: IP address of EW11 bridge
             port: TCP port of EW11 bridge
             slave_id: Modbus slave ID of HK3000
-            update_interval: Update interval in seconds
+            update_interval: Update interval in seconds (can be decimal)
         """
         self.reader = HK3000Reader(host, port, slave_id)
         self.device_info = {}

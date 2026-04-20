@@ -8,7 +8,7 @@ DOMAIN = "goodwe_hk3000_ew11"
 DEFAULT_NAME = "GoodWe HK3000"
 DEFAULT_PORT = 8899
 DEFAULT_SLAVE_ID = 3
-DEFAULT_UPDATE_INTERVAL = 1  # seconds
+DEFAULT_UPDATE_INTERVAL = 1.0  # seconds
 
 # Modbus register addresses and offsets
 # ── Compact register block (40097-40119) ──────────────────────────
