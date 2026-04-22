@@ -43,11 +43,23 @@ class HK3000Coordinator(DataUpdateCoordinator):
         )
 
     def _sync_update(self) -> tuple[dict, list[str]]:
-        """Synchronous update (runs in executor thread)."""
+        """Synchronous update (runs in executor thread).
+        
+        On failure, forces a reconnect and retries once before giving up.
+        """
         if not self.reader.is_connected():
             if not self.reader.connect():
                 return None, ["Cannot connect to EW11 bridge"]
-        return self.reader.read_meter_data()
+
+        data, warnings = self.reader.read_meter_data()
+
+        # If read failed, force reconnect and retry once
+        if data is None:
+            _LOGGER.debug("First read failed, forcing reconnect and retrying")
+            if self.reader.connect():
+                data, warnings = self.reader.read_meter_data()
+
+        return data, warnings
 
     async def _async_update_data(self) -> dict:
         """Fetch data from the device.

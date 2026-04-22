@@ -52,9 +52,20 @@ class HK3000Reader:
     def connect(self) -> bool:
         """Connect to the EW11 bridge.
         
+        Forces any stale connection closed first to handle HA restarts
+        where the EW11 may still hold the old TCP socket.
+        
         Returns:
             True if connection successful, False otherwise.
         """
+        # Force-close any existing connection to clear stale sockets
+        if self.client is not None:
+            try:
+                self.client.close()
+            except Exception:
+                pass
+            self.client = None
+
         self.client = ModbusTcpClient(
             self.host,
             port=self.port,
