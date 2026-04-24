@@ -2,7 +2,6 @@
 
 from datetime import timedelta
 import logging
-import time
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -11,13 +10,6 @@ from .const import DEFAULT_UPDATE_INTERVAL, DOMAIN
 from .modbus_reader import HK3000Reader
 
 _LOGGER = logging.getLogger(__name__)
-
-# Delay after closing connection to let EW11 release the socket
-RECONNECT_DELAY = 0.5
-# Longer delay after repeated failures
-EXTENDED_RECONNECT_DELAY = 2.0
-# Number of consecutive failures before using extended delay
-FAILURE_THRESHOLD = 5
 
 
 class HK3000Coordinator(DataUpdateCoordinator):
@@ -54,37 +46,45 @@ class HK3000Coordinator(DataUpdateCoordinator):
     def _sync_update(self) -> tuple[dict, list[str]]:
         """Synchronous update (runs in executor thread).
         
-        On failure, forces a full disconnect/reconnect cycle with a delay
-        to give the EW11 time to release the old TCP socket, then retries.
-        Uses a longer delay after repeated consecutive failures.
+        Connection strategy:
+        - If disconnected: connect fresh, then read.
+        - If connected: read directly.
+        - If read fails on a "connected" socket (stale connection): force
+          disconnect and fail immediately. The next poll cycle (0.5s later)
+          will see the disconnected state and establish a clean connection.
+          This avoids blocking the executor with sleep delays and lets the
+          EW11's TCP stack release the old socket naturally between polls.
         """
         if not self.reader.is_connected():
+            # Clean state — connect fresh
             if not self.reader.connect():
                 self._consecutive_failures += 1
+                _LOGGER.debug(
+                    "Cannot connect to EW11 (attempt %d)",
+                    self._consecutive_failures,
+                )
                 return None, ["Cannot connect to EW11 bridge"]
 
         data, warnings = self.reader.read_meter_data()
 
         if data is None:
             self._consecutive_failures += 1
-            delay = (
-                EXTENDED_RECONNECT_DELAY
-                if self._consecutive_failures >= FAILURE_THRESHOLD
-                else RECONNECT_DELAY
-            )
             _LOGGER.debug(
-                "Read failed (attempt %d), reconnecting after %.1fs delay",
+                "Read failed on open socket (attempt %d), "
+                "forcing disconnect — will reconnect on next poll",
                 self._consecutive_failures,
-                delay,
             )
+            # Force close the stale connection so is_connected() returns
+            # False on the next cycle and we get a clean reconnect.
             self.reader.disconnect()
-            time.sleep(delay)
-            if self.reader.connect():
-                data, warnings = self.reader.read_meter_data()
+            return None, warnings
 
-        if data is not None:
-            self._consecutive_failures = 0
-
+        if self._consecutive_failures > 0:
+            _LOGGER.info(
+                "EW11 recovered after %d consecutive failures",
+                self._consecutive_failures,
+            )
+        self._consecutive_failures = 0
         return data, warnings
 
     async def _async_update_data(self) -> dict:
