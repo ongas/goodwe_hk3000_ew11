@@ -10,7 +10,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_HOST, CONF_PORT, DEFAULT_PORT, DOMAIN
+from .const import (
+    CONF_EW11_PASSWORD,
+    CONF_EW11_USERNAME,
+    CONF_HOST,
+    CONF_PORT,
+    DEFAULT_EW11_PASSWORD,
+    DEFAULT_EW11_USERNAME,
+    DEFAULT_PORT,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,8 +35,10 @@ async def async_setup_entry(
     """Set up button entities from config entry."""
     host = entry.data[CONF_HOST]
     port = entry.data.get(CONF_PORT, DEFAULT_PORT)
+    username = entry.data.get(CONF_EW11_USERNAME, DEFAULT_EW11_USERNAME)
+    password = entry.data.get(CONF_EW11_PASSWORD, DEFAULT_EW11_PASSWORD)
 
-    async_add_entities([EW11RestartButton(host, port)])
+    async_add_entities([EW11RestartButton(host, port, username, password)])
 
 
 class EW11RestartButton(ButtonEntity):
@@ -37,10 +48,12 @@ class EW11RestartButton(ButtonEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:restart"
 
-    def __init__(self, host: str, port: int) -> None:
+    def __init__(self, host: str, port: int, username: str, password: str) -> None:
         """Initialize the restart button."""
         self._host = host
         self._port = port
+        self._username = username
+        self._password = password
         self._attr_name = "EW11 Restart"
         self._attr_unique_id = f"{host}_{port}_ew11_restart"
         self._attr_device_info = DeviceInfo(
@@ -54,7 +67,7 @@ class EW11RestartButton(ButtonEntity):
         """Restart the EW11 device via its HTTP API."""
         url = f"http://{self._host}/cmd"
         payload = f'{{"CID":{_EW11_RESTART_CID}}}'
-        auth = aiohttp.BasicAuth("admin", "admin")
+        auth = aiohttp.BasicAuth(self._username, self._password)
 
         try:
             async with aiohttp.ClientSession() as session:

@@ -70,6 +70,12 @@ CONF_PORT = "port"
 CONF_SLAVE_ID = "slave_id"
 CONF_UPDATE_INTERVAL = "update_interval"
 
+# EW11 web interface credentials (optional)
+CONF_EW11_USERNAME = "ew11_username"
+CONF_EW11_PASSWORD = "ew11_password"
+DEFAULT_EW11_USERNAME = "admin"
+DEFAULT_EW11_PASSWORD = "admin"
+
 # Entity category and units
 ENTITY_CATEGORY_CONFIG = "config"
 ENTITY_CATEGORY_DIAGNOSTIC = "diagnostic"

@@ -129,6 +129,31 @@ class HK3000Reader:
         """
         return self.client is not None and self.client.is_socket_open()
 
+    def _flush_rx_buffer(self) -> None:
+        """Drain any stale bytes sitting in the EW11's TCP socket.
+
+        The EW11 operates in transparent mode on a shared RS485 bus.
+        The GoodWe inverter also polls the HK3000, and those responses
+        leak through to our TCP socket.  If we don't flush before
+        sending our request, pymodbus will try to parse stale bytes
+        as the response and fail with "0 registers".
+        """
+        try:
+            sock = self.client.socket
+            if sock is None:
+                return
+            sock.settimeout(0)  # non-blocking
+            try:
+                stale = sock.recv(4096)
+                if stale:
+                    _LOGGER.debug("Flushed %d stale RX bytes before read", len(stale))
+            except (BlockingIOError, TimeoutError, OSError):
+                pass  # No stale data — good
+            finally:
+                sock.settimeout(self.timeout)
+        except Exception:
+            pass  # Non-critical
+
     def read_meter_data(self) -> tuple[dict | None, list[str]]:
         """Read all meter instantaneous data.
         
@@ -139,6 +164,9 @@ class HK3000Reader:
             return None, ["Not connected to EW11"]
 
         warnings = []
+
+        # Flush any stale RS485 bus traffic before our request
+        self._flush_rx_buffer()
 
         # Read compact block (instantaneous data)
         try:
