@@ -90,17 +90,31 @@ class HK3000Coordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict:
         """Fetch data from the device.
         
-        Returns:
-            Dictionary with meter data.
-            
-        Raises:
-            UpdateFailed: If data fetch fails.
+        Transient read failures (stale bytes, short responses) are absorbed
+        by returning the last known good data.  This prevents HA's built-in
+        exponential backoff from throttling our 0.5s poll rate down to minutes.
+        Only prolonged outages (10+ consecutive failures) raise UpdateFailed
+        to mark the sensor unavailable.
         """
         try:
             data, warnings = await self.hass.async_add_executor_job(
                 self._sync_update
             )
             if data is None:
+                if self._consecutive_failures >= 10:
+                    error_msg = (
+                        warnings[0] if warnings else "Unknown error reading meter"
+                    )
+                    raise UpdateFailed(error_msg)
+                # Transient failure — return last good data to avoid backoff
+                if self.data is not None:
+                    _LOGGER.debug(
+                        "Transient read failure (%d consecutive), "
+                        "returning last good data",
+                        self._consecutive_failures,
+                    )
+                    return self.data
+                # No previous data at all — must raise
                 error_msg = warnings[0] if warnings else "Unknown error reading meter"
                 raise UpdateFailed(error_msg)
 
