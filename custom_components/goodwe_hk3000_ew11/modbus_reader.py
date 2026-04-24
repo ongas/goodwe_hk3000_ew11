@@ -132,11 +132,10 @@ class HK3000Reader:
     def _flush_rx_buffer(self) -> None:
         """Drain any stale bytes sitting in the EW11's TCP socket.
 
-        The EW11 operates in transparent mode on a shared RS485 bus.
-        The GoodWe inverter also polls the HK3000, and those responses
-        leak through to our TCP socket.  If we don't flush before
-        sending our request, pymodbus will try to parse stale bytes
-        as the response and fail with "0 registers".
+        At 0.5s polling, a delayed Modbus response can overlap with the
+        next poll cycle, leaving stale bytes in the socket.  If we don't
+        flush before sending our request, pymodbus will try to parse
+        leftover bytes as the response and fail with "0 registers".
         """
         try:
             sock = self.client.socket
@@ -154,6 +153,48 @@ class HK3000Reader:
         except Exception:
             pass  # Non-critical
 
+    def _read_compact_block(self) -> tuple[list | None, list[str]]:
+        """Read the compact register block with one retry.
+
+        At the fast 0.5s poll rate, a delayed response from the previous
+        cycle can contaminate the current read, causing pymodbus to parse
+        stale bytes and return 0 registers.  A single immediate retry
+        succeeds because the stale bytes have been consumed by the first
+        (failed) attempt, leaving a clean socket for the retry.
+        """
+        for attempt in range(2):
+            if attempt > 0:
+                self._flush_rx_buffer()
+                _LOGGER.debug("Retrying compact block read (attempt %d)", attempt + 1)
+
+            try:
+                resp = self.client.read_holding_registers(
+                    COMPACT_START, count=COMPACT_COUNT,
+                    **{self._slave_kwarg: self.slave_id},
+                )
+            except ModbusIOException as exc:
+                return None, [f"Modbus IO error: {exc}"]
+
+            if resp.isError():
+                if attempt == 0:
+                    _LOGGER.debug("Compact read error (will retry): %s", resp)
+                    continue
+                return None, [f"Modbus error reading compact block: {resp}"]
+
+            r = resp.registers
+            if len(r) < COMPACT_COUNT:
+                if attempt == 0:
+                    _LOGGER.debug(
+                        "Short read %d/%d regs (will retry)",
+                        len(r), COMPACT_COUNT,
+                    )
+                    continue
+                return None, [f"Expected {COMPACT_COUNT} registers, got {len(r)}"]
+
+            return list(r), []
+
+        return None, [f"Expected {COMPACT_COUNT} registers, got 0"]
+
     def read_meter_data(self) -> tuple[dict | None, list[str]]:
         """Read all meter instantaneous data.
         
@@ -168,27 +209,10 @@ class HK3000Reader:
         # Flush any stale RS485 bus traffic before our request
         self._flush_rx_buffer()
 
-        # Read compact block (instantaneous data)
-        try:
-            resp = self.client.read_holding_registers(
-                COMPACT_START, count=COMPACT_COUNT,
-                **{self._slave_kwarg: self.slave_id},
-            )
-        except ModbusIOException as exc:
-            return None, [f"Modbus IO error: {exc}"]
-
-        if resp.isError():
-            return None, [f"Modbus error reading compact block: {resp}"]
-
-        r = resp.registers
-        if len(r) < COMPACT_COUNT:
-            _LOGGER.debug(
-                "Short register read: expected %d, got %d (response type=%s, "
-                "function_code=%s)",
-                COMPACT_COUNT, len(r), type(resp).__name__,
-                getattr(resp, 'function_code', 'N/A'),
-            )
-            return None, [f"Expected {COMPACT_COUNT} registers, got {len(r)}"]
+        # Read compact block (with automatic retry on bus collision)
+        r, read_errors = self._read_compact_block()
+        if r is None:
+            return None, read_errors
 
         # Sanity check voltage range
         for offset, label in [
