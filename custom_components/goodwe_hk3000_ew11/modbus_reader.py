@@ -51,6 +51,20 @@ class HK3000Reader:
         self.slave_id = slave_id
         self.timeout = timeout
         self.client = None
+        # pymodbus renamed 'slave' → 'device_id' in 3.7+
+        self._slave_kwarg = self._detect_slave_param()
+        _LOGGER.debug(
+            "Using pymodbus param '%s' for slave addressing", self._slave_kwarg
+        )
+
+    @staticmethod
+    def _detect_slave_param() -> str:
+        """Detect whether pymodbus uses 'slave' or 'device_id' parameter."""
+        import inspect
+        sig = inspect.signature(ModbusTcpClient.read_holding_registers)
+        if 'device_id' in sig.parameters:
+            return 'device_id'
+        return 'slave'
 
     def connect(self) -> bool:
         """Connect to the EW11 bridge.
@@ -129,7 +143,8 @@ class HK3000Reader:
         # Read compact block (instantaneous data)
         try:
             resp = self.client.read_holding_registers(
-                COMPACT_START, count=COMPACT_COUNT, device_id=self.slave_id
+                COMPACT_START, count=COMPACT_COUNT,
+                **{self._slave_kwarg: self.slave_id},
             )
         except ModbusIOException as exc:
             return None, [f"Modbus IO error: {exc}"]
@@ -139,6 +154,12 @@ class HK3000Reader:
 
         r = resp.registers
         if len(r) < COMPACT_COUNT:
+            _LOGGER.debug(
+                "Short register read: expected %d, got %d (response type=%s, "
+                "function_code=%s)",
+                COMPACT_COUNT, len(r), type(resp).__name__,
+                getattr(resp, 'function_code', 'N/A'),
+            )
             return None, [f"Expected {COMPACT_COUNT} registers, got {len(r)}"]
 
         # Sanity check voltage range
@@ -193,7 +214,8 @@ class HK3000Reader:
         # Read energy totals
         try:
             resp2 = self.client.read_holding_registers(
-                ENERGY_START, count=ENERGY_COUNT, device_id=self.slave_id
+                ENERGY_START, count=ENERGY_COUNT,
+                **{self._slave_kwarg: self.slave_id},
             )
             if not resp2.isError() and len(resp2.registers) >= ENERGY_COUNT:
                 e = resp2.registers
@@ -225,7 +247,8 @@ class HK3000Reader:
         info = {}
         try:
             resp = self.client.read_holding_registers(
-                DEVINFO_START, count=DEVINFO_COUNT, device_id=self.slave_id
+                DEVINFO_START, count=DEVINFO_COUNT,
+                **{self._slave_kwarg: self.slave_id},
             )
             if resp.isError() or len(resp.registers) < DEVINFO_COUNT:
                 return info
