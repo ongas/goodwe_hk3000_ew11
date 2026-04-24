@@ -34,7 +34,6 @@ class HK3000Coordinator(DataUpdateCoordinator):
         """
         self.reader = HK3000Reader(host, port, slave_id)
         self.device_info = {}
-        self._consecutive_failures = 0
         
         super().__init__(
             hass,
@@ -44,77 +43,26 @@ class HK3000Coordinator(DataUpdateCoordinator):
         )
 
     def _sync_update(self) -> tuple[dict, list[str]]:
-        """Synchronous update (runs in executor thread).
-        
-        Connection strategy:
-        - If disconnected: connect fresh, then read.
-        - If connected: read directly.
-        - If read fails on a "connected" socket (stale connection): force
-          disconnect and fail immediately. The next poll cycle (0.5s later)
-          will see the disconnected state and establish a clean connection.
-          This avoids blocking the executor with sleep delays and lets the
-          EW11's TCP stack release the old socket naturally between polls.
-        """
+        """Synchronous update (runs in executor thread)."""
         if not self.reader.is_connected():
-            # Clean state — connect fresh
             if not self.reader.connect():
-                self._consecutive_failures += 1
-                _LOGGER.debug(
-                    "Cannot connect to EW11 (attempt %d)",
-                    self._consecutive_failures,
-                )
                 return None, ["Cannot connect to EW11 bridge"]
-
-        data, warnings = self.reader.read_meter_data()
-
-        if data is None:
-            self._consecutive_failures += 1
-            _LOGGER.debug(
-                "Read failed on open socket (attempt %d), "
-                "forcing disconnect — will reconnect on next poll",
-                self._consecutive_failures,
-            )
-            # Force close the stale connection so is_connected() returns
-            # False on the next cycle and we get a clean reconnect.
-            self.reader.disconnect()
-            return None, warnings
-
-        if self._consecutive_failures > 0:
-            _LOGGER.info(
-                "EW11 recovered after %d consecutive failures",
-                self._consecutive_failures,
-            )
-        self._consecutive_failures = 0
-        return data, warnings
+        return self.reader.read_meter_data()
 
     async def _async_update_data(self) -> dict:
         """Fetch data from the device.
         
-        Transient read failures (stale bytes, short responses) are absorbed
-        by returning the last known good data.  This prevents HA's built-in
-        exponential backoff from throttling our 0.5s poll rate down to minutes.
-        Only prolonged outages (10+ consecutive failures) raise UpdateFailed
-        to mark the sensor unavailable.
+        Returns:
+            Dictionary with meter data.
+            
+        Raises:
+            UpdateFailed: If data fetch fails.
         """
         try:
             data, warnings = await self.hass.async_add_executor_job(
                 self._sync_update
             )
             if data is None:
-                if self._consecutive_failures >= 10:
-                    error_msg = (
-                        warnings[0] if warnings else "Unknown error reading meter"
-                    )
-                    raise UpdateFailed(error_msg)
-                # Transient failure — return last good data to avoid backoff
-                if self.data is not None:
-                    _LOGGER.debug(
-                        "Transient read failure (%d consecutive), "
-                        "returning last good data",
-                        self._consecutive_failures,
-                    )
-                    return self.data
-                # No previous data at all — must raise
                 error_msg = warnings[0] if warnings else "Unknown error reading meter"
                 raise UpdateFailed(error_msg)
 

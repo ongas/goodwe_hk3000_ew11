@@ -1,12 +1,9 @@
 """Modbus reader for GoodWe HK3000 Smart Meter via Elfin EW11."""
 
-import logging
 import struct
 from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusIOException
 from pymodbus.framer import FramerType
-
-_LOGGER = logging.getLogger(__name__)
 
 from .const import (
     COMPACT_START,
@@ -51,70 +48,20 @@ class HK3000Reader:
         self.slave_id = slave_id
         self.timeout = timeout
         self.client = None
-        # pymodbus renamed 'slave' → 'device_id' in 3.7+
-        self._slave_kwarg = self._detect_slave_param()
-        _LOGGER.debug(
-            "Using pymodbus param '%s' for slave addressing", self._slave_kwarg
-        )
-
-    @staticmethod
-    def _detect_slave_param() -> str:
-        """Detect whether pymodbus uses 'slave' or 'device_id' parameter."""
-        import inspect
-        sig = inspect.signature(ModbusTcpClient.read_holding_registers)
-        if 'device_id' in sig.parameters:
-            return 'device_id'
-        return 'slave'
 
     def connect(self) -> bool:
         """Connect to the EW11 bridge.
         
-        Forces any stale connection closed first to handle HA restarts
-        where the EW11 may still hold the old TCP socket.  After connecting,
-        flushes any stale bytes the EW11 may have buffered from a previous
-        session to prevent slave-ID mismatches on the first real read.
-        
         Returns:
             True if connection successful, False otherwise.
         """
-        # Force-close any existing connection to clear stale sockets
-        if self.client is not None:
-            try:
-                self.client.close()
-            except Exception:
-                pass
-            self.client = None
-
         self.client = ModbusTcpClient(
             self.host,
             port=self.port,
             framer=FramerType.RTU,
             timeout=self.timeout,
         )
-        if not self.client.connect():
-            return False
-
-        # Flush any stale data the EW11 buffered from a previous session.
-        # Read raw bytes from the socket with a short timeout — if the EW11
-        # has leftover Modbus response bytes they'll be consumed and discarded.
-        try:
-            sock = self.client.socket
-            if sock is not None:
-                sock.settimeout(0.3)
-                try:
-                    stale = sock.recv(1024)
-                    if stale:
-                        _LOGGER.debug(
-                            "Flushed %d stale bytes from EW11 buffer", len(stale)
-                        )
-                except (TimeoutError, OSError):
-                    pass  # No stale data — good
-                finally:
-                    sock.settimeout(self.timeout)
-        except Exception:
-            pass  # Non-critical — proceed with connection
-
-        return True
+        return self.client.connect()
 
     def disconnect(self) -> None:
         """Disconnect from the EW11 bridge."""
@@ -129,72 +76,6 @@ class HK3000Reader:
         """
         return self.client is not None and self.client.is_socket_open()
 
-    def _flush_rx_buffer(self) -> None:
-        """Drain any stale bytes sitting in the EW11's TCP socket.
-
-        At 0.5s polling, a delayed Modbus response can overlap with the
-        next poll cycle, leaving stale bytes in the socket.  If we don't
-        flush before sending our request, pymodbus will try to parse
-        leftover bytes as the response and fail with "0 registers".
-        """
-        try:
-            sock = self.client.socket
-            if sock is None:
-                return
-            sock.settimeout(0)  # non-blocking
-            try:
-                stale = sock.recv(4096)
-                if stale:
-                    _LOGGER.debug("Flushed %d stale RX bytes before read", len(stale))
-            except (BlockingIOError, TimeoutError, OSError):
-                pass  # No stale data — good
-            finally:
-                sock.settimeout(self.timeout)
-        except Exception:
-            pass  # Non-critical
-
-    def _read_compact_block(self) -> tuple[list | None, list[str]]:
-        """Read the compact register block with one retry.
-
-        At the fast 0.5s poll rate, a delayed response from the previous
-        cycle can contaminate the current read, causing pymodbus to parse
-        stale bytes and return 0 registers.  A single immediate retry
-        succeeds because the stale bytes have been consumed by the first
-        (failed) attempt, leaving a clean socket for the retry.
-        """
-        for attempt in range(2):
-            if attempt > 0:
-                self._flush_rx_buffer()
-                _LOGGER.debug("Retrying compact block read (attempt %d)", attempt + 1)
-
-            try:
-                resp = self.client.read_holding_registers(
-                    COMPACT_START, count=COMPACT_COUNT,
-                    **{self._slave_kwarg: self.slave_id},
-                )
-            except ModbusIOException as exc:
-                return None, [f"Modbus IO error: {exc}"]
-
-            if resp.isError():
-                if attempt == 0:
-                    _LOGGER.debug("Compact read error (will retry): %s", resp)
-                    continue
-                return None, [f"Modbus error reading compact block: {resp}"]
-
-            r = resp.registers
-            if len(r) < COMPACT_COUNT:
-                if attempt == 0:
-                    _LOGGER.debug(
-                        "Short read %d/%d regs (will retry)",
-                        len(r), COMPACT_COUNT,
-                    )
-                    continue
-                return None, [f"Expected {COMPACT_COUNT} registers, got {len(r)}"]
-
-            return list(r), []
-
-        return None, [f"Expected {COMPACT_COUNT} registers, got 0"]
-
     def read_meter_data(self) -> tuple[dict | None, list[str]]:
         """Read all meter instantaneous data.
         
@@ -206,13 +87,20 @@ class HK3000Reader:
 
         warnings = []
 
-        # Flush any stale RS485 bus traffic before our request
-        self._flush_rx_buffer()
+        # Read compact block (instantaneous data)
+        try:
+            resp = self.client.read_holding_registers(
+                COMPACT_START, count=COMPACT_COUNT, device_id=self.slave_id
+            )
+        except ModbusIOException as exc:
+            return None, [f"Modbus IO error: {exc}"]
 
-        # Read compact block (with automatic retry on bus collision)
-        r, read_errors = self._read_compact_block()
-        if r is None:
-            return None, read_errors
+        if resp.isError():
+            return None, [f"Modbus error reading compact block: {resp}"]
+
+        r = resp.registers
+        if len(r) < COMPACT_COUNT:
+            return None, [f"Expected {COMPACT_COUNT} registers, got {len(r)}"]
 
         # Sanity check voltage range
         for offset, label in [
@@ -266,8 +154,7 @@ class HK3000Reader:
         # Read energy totals
         try:
             resp2 = self.client.read_holding_registers(
-                ENERGY_START, count=ENERGY_COUNT,
-                **{self._slave_kwarg: self.slave_id},
+                ENERGY_START, count=ENERGY_COUNT, device_id=self.slave_id
             )
             if not resp2.isError() and len(resp2.registers) >= ENERGY_COUNT:
                 e = resp2.registers
@@ -299,8 +186,7 @@ class HK3000Reader:
         info = {}
         try:
             resp = self.client.read_holding_registers(
-                DEVINFO_START, count=DEVINFO_COUNT,
-                **{self._slave_kwarg: self.slave_id},
+                DEVINFO_START, count=DEVINFO_COUNT, device_id=self.slave_id
             )
             if resp.isError() or len(resp.registers) < DEVINFO_COUNT:
                 return info
