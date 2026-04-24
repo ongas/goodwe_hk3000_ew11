@@ -1,9 +1,12 @@
 """Modbus reader for GoodWe HK3000 Smart Meter via Elfin EW11."""
 
+import logging
 import struct
 from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusIOException
 from pymodbus.framer import FramerType
+
+_LOGGER = logging.getLogger(__name__)
 
 from .const import (
     COMPACT_START,
@@ -53,7 +56,9 @@ class HK3000Reader:
         """Connect to the EW11 bridge.
         
         Forces any stale connection closed first to handle HA restarts
-        where the EW11 may still hold the old TCP socket.
+        where the EW11 may still hold the old TCP socket.  After connecting,
+        flushes any stale bytes the EW11 may have buffered from a previous
+        session to prevent slave-ID mismatches on the first real read.
         
         Returns:
             True if connection successful, False otherwise.
@@ -72,7 +77,30 @@ class HK3000Reader:
             framer=FramerType.RTU,
             timeout=self.timeout,
         )
-        return self.client.connect()
+        if not self.client.connect():
+            return False
+
+        # Flush any stale data the EW11 buffered from a previous session.
+        # Read raw bytes from the socket with a short timeout — if the EW11
+        # has leftover Modbus response bytes they'll be consumed and discarded.
+        try:
+            sock = self.client.socket
+            if sock is not None:
+                sock.settimeout(0.3)
+                try:
+                    stale = sock.recv(1024)
+                    if stale:
+                        _LOGGER.debug(
+                            "Flushed %d stale bytes from EW11 buffer", len(stale)
+                        )
+                except (TimeoutError, OSError):
+                    pass  # No stale data — good
+                finally:
+                    sock.settimeout(self.timeout)
+        except Exception:
+            pass  # Non-critical — proceed with connection
+
+        return True
 
     def disconnect(self) -> None:
         """Disconnect from the EW11 bridge."""
