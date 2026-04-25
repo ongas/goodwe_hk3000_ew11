@@ -3,6 +3,7 @@
 import inspect
 import logging
 import struct
+import time
 from pymodbus import __version__
 from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusIOException
@@ -155,9 +156,9 @@ class HK3000Reader:
 
         warnings = []
 
-        # Read compact block (instantaneous data) with retry
+        # Read compact block (instantaneous data) with aggressive retry
         resp = None
-        max_attempts = 2
+        max_attempts = 5  # Increased from 2 to handle high-load conditions
         for attempt in range(max_attempts):
             try:
                 _LOGGER.debug(
@@ -196,6 +197,9 @@ class HK3000Reader:
                         len(resp.registers), COMPACT_COUNT, attempt + 1, max_attempts
                     )
                     resp = None
+                    # Add small delay between retries to let EW11 buffer settle
+                    if attempt < max_attempts - 1:
+                        time.sleep(0.1)
                     continue
                     
             except ModbusIOException as exc:
@@ -205,6 +209,8 @@ class HK3000Reader:
                 )
                 resp = None
                 if attempt < max_attempts - 1:
+                    # Add delay between retries
+                    time.sleep(0.1)
                     continue
                 return None, [f"Modbus IO error: {exc}"]
 
@@ -264,27 +270,39 @@ class HK3000Reader:
             "frequency": r[COMPACT_REGISTERS["FREQUENCY"]] / 100,
         }
 
-        # Read energy totals
-        try:
-            resp2 = self.client.read_holding_registers(
-                ENERGY_START, count=ENERGY_COUNT,
-                **{self._slave_kwarg: self.slave_id},
-            )
-            if not resp2.isError() and len(resp2.registers) >= ENERGY_COUNT:
-                e = resp2.registers
-                exp_hi, exp_lo = ENERGY_REGISTERS["EXPORT_ENERGY"]
-                imp_hi, imp_lo = ENERGY_REGISTERS["IMPORT_ENERGY"]
-                react_hi, react_lo = ENERGY_REGISTERS["REACTIVE_ENERGY"]
-                appar_hi, appar_lo = ENERGY_REGISTERS["APPARENT_ENERGY"]
+        # Read energy totals with retry
+        energy_read = False
+        for energy_attempt in range(3):  # 3 attempts for energy registers
+            try:
+                resp2 = self.client.read_holding_registers(
+                    ENERGY_START, count=ENERGY_COUNT,
+                    **{self._slave_kwarg: self.slave_id},
+                )
+                if not resp2.isError() and len(resp2.registers) >= ENERGY_COUNT:
+                    e = resp2.registers
+                    exp_hi, exp_lo = ENERGY_REGISTERS["EXPORT_ENERGY"]
+                    imp_hi, imp_lo = ENERGY_REGISTERS["IMPORT_ENERGY"]
+                    react_hi, react_lo = ENERGY_REGISTERS["REACTIVE_ENERGY"]
+                    appar_hi, appar_lo = ENERGY_REGISTERS["APPARENT_ENERGY"]
 
-                data["energy_export"] = u32(e[exp_hi], e[exp_lo]) / ENERGY_SCALE
-                data["energy_import"] = u32(e[imp_hi], e[imp_lo]) / ENERGY_SCALE
-                data["energy_reactive"] = u32(e[react_hi], e[react_lo]) / ENERGY_SCALE
-                data["energy_apparent"] = u32(e[appar_hi], e[appar_lo]) / ENERGY_SCALE
-            else:
-                warnings.append("Could not read energy registers")
-        except Exception as exc:
-            warnings.append(f"Energy register read failed: {exc}")
+                    data["energy_export"] = u32(e[exp_hi], e[exp_lo]) / ENERGY_SCALE
+                    data["energy_import"] = u32(e[imp_hi], e[imp_lo]) / ENERGY_SCALE
+                    data["energy_reactive"] = u32(e[react_hi], e[react_lo]) / ENERGY_SCALE
+                    data["energy_apparent"] = u32(e[appar_hi], e[appar_lo]) / ENERGY_SCALE
+                    energy_read = True
+                    break
+                elif energy_attempt < 2:
+                    # Retry on incomplete response
+                    _LOGGER.debug("Energy register read incomplete, retrying...")
+                    time.sleep(0.05)
+                else:
+                    warnings.append("Could not read energy registers")
+            except Exception as exc:
+                if energy_attempt < 2:
+                    _LOGGER.debug("Energy register read error, retrying: %s", exc)
+                    time.sleep(0.05)
+                else:
+                    warnings.append(f"Energy register read failed: {exc}")
 
         return data, warnings
 
