@@ -34,8 +34,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = HK3000Coordinator(hass, host, port, slave_id, update_interval)
 
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
+    # Attempt first data fetch — but do NOT fail the integration if the EW11
+    # is unreachable.  Using async_refresh() (instead of
+    # async_config_entry_first_refresh()) lets the integration load
+    # immediately.  Entities start as unavailable until the first successful
+    # read, after which the coordinator's caching guarantees they stay
+    # available even through transient failures.
+    await coordinator.async_refresh()
+    if not coordinator.last_update_success:
+        _LOGGER.warning(
+            "EW11 at %s:%s not reachable at startup — will keep retrying "
+            "every %s seconds",
+            host,
+            port,
+            update_interval,
+        )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 

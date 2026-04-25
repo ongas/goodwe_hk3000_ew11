@@ -127,6 +127,15 @@ class HK3000Coordinator(DataUpdateCoordinator):
         except UpdateFailed:
             raise
         except Exception as exc:
+            # Unexpected error — force disconnect so the next poll gets a clean socket
+            self._consecutive_failures += 1
+            self.reader.disconnect()
+            if self._last_valid_data is not None:
+                _LOGGER.exception(
+                    "Unexpected error (attempt %d), using cached data",
+                    self._consecutive_failures,
+                )
+                return self._last_valid_data
             raise UpdateFailed(f"Error communicating with HK3000: {exc}") from exc
 
     async def _async_load_device_info_once(self) -> None:
