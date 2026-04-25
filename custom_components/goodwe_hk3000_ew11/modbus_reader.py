@@ -3,7 +3,6 @@
 import inspect
 import logging
 import struct
-from packaging import version
 from pymodbus import __version__
 from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusIOException
@@ -68,8 +67,10 @@ class HK3000Reader:
         pymodbus 3.7+: parameter is 'device_id'
         """
         try:
-            pymodbus_version = version.parse(__version__)
-            if pymodbus_version >= version.parse("3.7.0"):
+            # Parse version string (e.g., "3.7.0" or "3.6.2")
+            parts = __version__.split('.')[:2]  # Get major.minor
+            major, minor = int(parts[0]), int(parts[1])
+            if (major, minor) >= (3, 7):
                 return 'device_id'
         except Exception:
             # Fallback: try signature inspection
