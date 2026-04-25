@@ -83,16 +83,52 @@ class HK3000Reader:
     def connect(self) -> bool:
         """Connect to the EW11 bridge.
         
+        Forces any stale connection closed first to handle HA restarts
+        where the EW11 may still hold the old TCP socket. After connecting,
+        flushes any stale bytes the EW11 may have buffered from a previous
+        session to prevent slave-ID mismatches on the first real read.
+        
         Returns:
             True if connection successful, False otherwise.
         """
+        # Force-close any existing connection to clear stale sockets
+        if self.client is not None:
+            try:
+                self.client.close()
+            except Exception:
+                pass
+            self.client = None
+
         self.client = ModbusTcpClient(
             self.host,
             port=self.port,
             framer=FramerType.RTU,
             timeout=self.timeout,
         )
-        return self.client.connect()
+        if not self.client.connect():
+            return False
+
+        # Flush any stale data the EW11 buffered from a previous session.
+        # Read raw bytes from the socket with a short timeout — if the EW11
+        # has leftover Modbus response bytes they'll be consumed and discarded.
+        try:
+            sock = self.client.socket
+            if sock is not None:
+                sock.settimeout(0.3)
+                try:
+                    stale = sock.recv(1024)
+                    if stale:
+                        _LOGGER.debug(
+                            "Flushed %d stale bytes from EW11 buffer", len(stale)
+                        )
+                except (TimeoutError, OSError):
+                    pass  # No stale data — good
+                finally:
+                    sock.settimeout(self.timeout)
+        except Exception:
+            pass  # Non-critical — proceed with connection
+
+        return True
 
     def disconnect(self) -> None:
         """Disconnect from the EW11 bridge."""
