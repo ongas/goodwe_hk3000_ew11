@@ -96,6 +96,7 @@ class HK3000Reader:
         """Disconnect from the EW11 bridge."""
         if self.client:
             self.client.close()
+            self.client = None
 
     def is_connected(self) -> bool:
         """Check if currently connected.
