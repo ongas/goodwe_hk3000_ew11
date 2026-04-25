@@ -55,8 +55,9 @@ class HK3000Reader:
         self.client = None
         # pymodbus renamed 'slave' → 'device_id' in 3.7+
         self._slave_kwarg = self._detect_slave_param()
-        _LOGGER.debug(
-            "Using pymodbus param '%s' for slave addressing", self._slave_kwarg
+        _LOGGER.info(
+            "HK3000Reader initialized: host=%s port=%d slave_id=%d, using pymodbus param=%s",
+            host, port, slave_id, self._slave_kwarg
         )
 
     @staticmethod
@@ -120,6 +121,10 @@ class HK3000Reader:
 
         # Read compact block (instantaneous data)
         try:
+            _LOGGER.debug(
+                "Reading compact block (23 regs from %d) with %s=%d",
+                COMPACT_START, self._slave_kwarg, self.slave_id
+            )
             resp = self.client.read_holding_registers(
                 COMPACT_START, count=COMPACT_COUNT,
                 **{self._slave_kwarg: self.slave_id},
