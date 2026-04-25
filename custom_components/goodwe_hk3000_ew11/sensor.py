@@ -10,13 +10,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import (
-    CONF_HOST,
-    CONF_PORT,
-    CONF_SLAVE_ID,
-    CONF_UPDATE_INTERVAL,
-    DEFAULT_PORT,
-    DEFAULT_SLAVE_ID,
-    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     SENSOR_DEFINITIONS,
     SensorType,
@@ -122,15 +115,7 @@ async def async_setup_entry(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up sensor entities from config entry."""
-    host = config_entry.data[CONF_HOST]
-    port = config_entry.data.get(CONF_PORT, DEFAULT_PORT)
-    slave_id = config_entry.data.get(CONF_SLAVE_ID, DEFAULT_SLAVE_ID)
-    update_interval = config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
-
-    coordinator = HK3000Coordinator(hass, host, port, slave_id, update_interval)
-
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
+    coordinator: HK3000Coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
     # Create sensor entities for all defined sensors
     entities = [
