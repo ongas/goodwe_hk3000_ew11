@@ -54,7 +54,16 @@ class HK3000Coordinator(DataUpdateCoordinator):
           disconnected state and establish a clean connection. This avoids
           blocking the executor with sleep delays and lets the EW11's TCP
           stack release the old socket naturally between polls.
+        - If consecutive failures exceed threshold, force full disconnect/reconnect.
         """
+        # Force reconnect after 3 consecutive failures to clear stale state
+        if self._consecutive_failures >= 3:
+            _LOGGER.warning(
+                "Multiple consecutive failures (%d), forcing fresh connection",
+                self._consecutive_failures,
+            )
+            self.reader.disconnect()
+        
         if not self.reader.is_connected():
             if not self.reader.connect():
                 self._consecutive_failures += 1
