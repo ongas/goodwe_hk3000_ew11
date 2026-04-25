@@ -129,6 +129,18 @@ class HK3000Reader:
                 COMPACT_START, count=COMPACT_COUNT,
                 **{self._slave_kwarg: self.slave_id},
             )
+            # If we got an empty/error response and were using device_id, try slave param
+            if (resp is None or resp.isError() or len(resp.registers) == 0) and self._slave_kwarg == 'device_id':
+                _LOGGER.debug(
+                    "First attempt with device_id failed, retrying with slave parameter"
+                )
+                resp = self.client.read_holding_registers(
+                    COMPACT_START, count=COMPACT_COUNT,
+                    slave=self.slave_id,
+                )
+                if resp is not None and not resp.isError() and len(resp.registers) > 0:
+                    _LOGGER.info("Recovered with slave parameter; updating for future use")
+                    self._slave_kwarg = 'slave'
         except ModbusIOException as exc:
             return None, [f"Modbus IO error: {exc}"]
 
