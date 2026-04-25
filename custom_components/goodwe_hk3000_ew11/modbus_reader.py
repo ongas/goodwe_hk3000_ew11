@@ -3,6 +3,8 @@
 import inspect
 import logging
 import struct
+from packaging import version
+from pymodbus import __version__
 from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusIOException
 from pymodbus.framer import FramerType
@@ -60,10 +62,20 @@ class HK3000Reader:
 
     @staticmethod
     def _detect_slave_param() -> str:
-        """Detect whether pymodbus uses 'slave' or 'device_id' parameter."""
-        sig = inspect.signature(ModbusTcpClient.read_holding_registers)
-        if 'device_id' in sig.parameters:
-            return 'device_id'
+        """Detect whether pymodbus uses 'slave' or 'device_id' parameter.
+        
+        pymodbus 3.3-3.6: parameter is 'slave'
+        pymodbus 3.7+: parameter is 'device_id'
+        """
+        try:
+            pymodbus_version = version.parse(__version__)
+            if pymodbus_version >= version.parse("3.7.0"):
+                return 'device_id'
+        except Exception:
+            # Fallback: try signature inspection
+            sig = inspect.signature(ModbusTcpClient.read_holding_registers)
+            if 'device_id' in sig.parameters:
+                return 'device_id'
         return 'slave'
 
     def connect(self) -> bool:
