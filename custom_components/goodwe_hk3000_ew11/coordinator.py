@@ -35,6 +35,7 @@ class HK3000Coordinator(DataUpdateCoordinator):
         self.reader = HK3000Reader(host, port, slave_id)
         self.device_info = {}
         self._consecutive_failures = 0
+        self._last_valid_data = None  # Cache last successful read
         
         super().__init__(
             hass,
@@ -97,16 +98,22 @@ class HK3000Coordinator(DataUpdateCoordinator):
         """Fetch data from the device.
         
         Returns:
-            Dictionary with meter data.
+            Dictionary with meter data (cached if update fails).
             
         Raises:
-            UpdateFailed: If data fetch fails.
+            UpdateFailed: If no cached data available and update fails.
         """
         try:
             data, warnings = await self.hass.async_add_executor_job(
                 self._sync_update
             )
             if data is None:
+                # If we have cached data, use it and just log the warning
+                if self._last_valid_data:
+                    error_msg = warnings[0] if warnings else "Read failed, using cached data"
+                    _LOGGER.debug("Update failed but cached data available: %s", error_msg)
+                    return self._last_valid_data
+                
                 error_msg = warnings[0] if warnings else "Unknown error reading meter"
                 raise UpdateFailed(error_msg)
 
@@ -114,20 +121,27 @@ class HK3000Coordinator(DataUpdateCoordinator):
                 for warning in warnings:
                     _LOGGER.warning("Meter read warning: %s", warning)
 
-            # Store device info (static, only fetch once)
-            if not self.device_info:
-                info = await self.hass.async_add_executor_job(
-                    self.reader.read_device_info
-                )
-                if info:
-                    self.device_info = info
-                    _LOGGER.debug("Device info: %s", self.device_info)
-
+            # Cache successful data
+            self._last_valid_data = data
             return data
         except UpdateFailed:
             raise
         except Exception as exc:
             raise UpdateFailed(f"Error communicating with HK3000: {exc}") from exc
+
+    async def _async_load_device_info_once(self) -> None:
+        """Fetch static device info once, outside the hot update loop."""
+        if self.device_info:
+            return
+        try:
+            info = await self.hass.async_add_executor_job(
+                self.reader.read_device_info
+            )
+            if info:
+                self.device_info = info
+                _LOGGER.debug("Device info: %s", self.device_info)
+        except Exception as exc:
+            _LOGGER.debug("Failed to read device info: %s", exc)
 
     def get_device_info(self) -> dict:
         """Get cached device information.

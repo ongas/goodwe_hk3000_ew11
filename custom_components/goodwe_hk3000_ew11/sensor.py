@@ -58,10 +58,14 @@ class HK3000Sensor(HK3000Entity, SensorEntity):
     @property
     def native_value(self):
         """Return the sensor value."""
+        # Defensive: if no fresh data, try to use coordinator's last valid data
         if self.coordinator.data is None:
-            return None
-
-        data = self.coordinator.data
+            if hasattr(self.coordinator, '_last_valid_data') and self.coordinator._last_valid_data:
+                data = self.coordinator._last_valid_data
+            else:
+                return None
+        else:
+            data = self.coordinator.data
         
         try:
             # Phase-specific instantaneous data

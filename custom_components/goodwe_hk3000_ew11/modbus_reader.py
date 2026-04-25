@@ -155,38 +155,65 @@ class HK3000Reader:
 
         warnings = []
 
-        # Read compact block (instantaneous data)
-        try:
-            _LOGGER.debug(
-                "Reading compact block (23 regs from %d) with %s=%d",
-                COMPACT_START, self._slave_kwarg, self.slave_id
-            )
-            resp = self.client.read_holding_registers(
-                COMPACT_START, count=COMPACT_COUNT,
-                **{self._slave_kwarg: self.slave_id},
-            )
-            # If we got an empty/error response and were using device_id, try slave param
-            if (resp is None or (hasattr(resp, 'isError') and resp.isError()) or (hasattr(resp, 'registers') and len(resp.registers) == 0)) and self._slave_kwarg == 'device_id':
+        # Read compact block (instantaneous data) with retry
+        resp = None
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
                 _LOGGER.debug(
-                    "First attempt with device_id failed, retrying with slave parameter"
+                    "Reading compact block (23 regs from %d) with %s=%d (attempt %d/%d)",
+                    COMPACT_START, self._slave_kwarg, self.slave_id, attempt + 1, max_attempts
                 )
-                retry_resp = self.client.read_holding_registers(
+                resp = self.client.read_holding_registers(
                     COMPACT_START, count=COMPACT_COUNT,
-                    slave=self.slave_id,
+                    **{self._slave_kwarg: self.slave_id},
                 )
-                if retry_resp is not None and not retry_resp.isError() and len(retry_resp.registers) > 0:
-                    _LOGGER.info("Recovered with slave parameter; updating for future use")
-                    self._slave_kwarg = 'slave'
-                    resp = retry_resp
-        except ModbusIOException as exc:
-            return None, [f"Modbus IO error: {exc}"]
+                
+                # Check if we got valid data
+                if resp and not resp.isError() and len(resp.registers) >= COMPACT_COUNT:
+                    break  # Success, exit retry loop
+                
+                # If we got an empty/error response and were using device_id, try slave param
+                if (resp is None or (hasattr(resp, 'isError') and resp.isError()) or 
+                    (hasattr(resp, 'registers') and len(resp.registers) == 0)) and self._slave_kwarg == 'device_id':
+                    _LOGGER.debug(
+                        "Attempt with device_id failed, trying slave parameter"
+                    )
+                    retry_resp = self.client.read_holding_registers(
+                        COMPACT_START, count=COMPACT_COUNT,
+                        slave=self.slave_id,
+                    )
+                    if retry_resp is not None and not retry_resp.isError() and len(retry_resp.registers) >= COMPACT_COUNT:
+                        _LOGGER.info("Recovered with slave parameter; updating for future use")
+                        self._slave_kwarg = 'slave'
+                        resp = retry_resp
+                        break
+                    
+                # Partial response - log and retry
+                if resp and hasattr(resp, 'registers') and 0 < len(resp.registers) < COMPACT_COUNT:
+                    _LOGGER.warning(
+                        "Incomplete register read: got %d/%d (attempt %d/%d), retrying...",
+                        len(resp.registers), COMPACT_COUNT, attempt + 1, max_attempts
+                    )
+                    resp = None
+                    continue
+                    
+            except ModbusIOException as exc:
+                _LOGGER.warning(
+                    "Modbus IO error on attempt %d/%d: %s, retrying...",
+                    attempt + 1, max_attempts, exc
+                )
+                resp = None
+                if attempt < max_attempts - 1:
+                    continue
+                return None, [f"Modbus IO error: {exc}"]
 
         if resp is None or resp.isError():
-            return None, [f"Modbus error reading compact block: {resp}"]
+            return None, [f"Modbus error reading compact block after {max_attempts} attempts: {resp}"]
 
         r = resp.registers
         if len(r) < COMPACT_COUNT:
-            return None, [f"Expected {COMPACT_COUNT} registers, got {len(r)}"]
+            return None, [f"Expected {COMPACT_COUNT} registers, got {len(r)} after {max_attempts} attempts"]
 
         # Sanity check voltage range
         for offset, label in [

@@ -33,5 +33,16 @@ class HK3000Entity(CoordinatorEntity):
 
     @property
     def available(self) -> bool:
-        """Entity is available if coordinator has data."""
-        return self.coordinator.last_update_success
+        """Entity is available if we have data or cached data.
+        
+        For a 24/7 meter, we should rarely be unavailable. We're only unavailable
+        if we've had multiple consecutive failures AND have no cached data.
+        """
+        # If coordinator has fresh data, we're available
+        if self.coordinator.data:
+            return True
+        # If we have cached data and haven't failed too many times, still show as available
+        if self.coordinator._last_valid_data and self.coordinator._consecutive_failures < 10:
+            return True
+        # Only unavailable if coordinator explicitly says so AND we have no cache
+        return self.coordinator.last_update_success and bool(self.coordinator.data)
