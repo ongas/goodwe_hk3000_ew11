@@ -46,6 +46,16 @@ REQUIRED_SOCK = {
 
 
 @dataclass
+class EW11ConfigureResult:
+    """Result of a configure_uart() operation."""
+
+    changed: bool
+    config: "EW11Config"
+    changed_fields: dict[str, tuple[str, str]] = field(default_factory=dict)
+    """Mapping of {field: (old_value, new_value)} for settings that changed."""
+
+
+@dataclass
 class EW11Config:
     """Parsed EW11 configuration."""
 
@@ -166,10 +176,10 @@ class EW11Api:
 
         return config
 
-    async def configure_uart(self) -> EW11Config:
+    async def configure_uart(self) -> EW11ConfigureResult:
         """Set UART to required HK3000 settings and verify SOCK unchanged.
 
-        Returns the verified post-write config.
+        Returns an EW11ConfigureResult with changed=True/False and details.
 
         Raises:
             EW11ApiError: If the write fails or SOCK was corrupted.
@@ -180,7 +190,10 @@ class EW11Api:
 
         if pre_config.is_uart_ok:
             _LOGGER.info("EW11 UART settings already correct, no write needed")
-            return pre_config
+            return EW11ConfigureResult(changed=False, config=pre_config)
+
+        # Capture what's wrong before we fix it
+        issues_before = pre_config.uart_issues
 
         # Build the UART payload using the EW11 *API input* key names.
         # IMPORTANT: The XML export uses different names (e.g. "gapTime Size",
@@ -243,7 +256,11 @@ class EW11Api:
             )
 
         _LOGGER.info("EW11 UART configured successfully, SOCK verified unchanged")
-        return post_config
+        return EW11ConfigureResult(
+            changed=True,
+            config=post_config,
+            changed_fields=issues_before,
+        )
 
     async def restart(self) -> None:
         """Restart the EW11 device."""
