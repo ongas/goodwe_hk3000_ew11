@@ -120,6 +120,14 @@ class TestEW11ValidationResult:
         )
         assert "maxAccept" in result.sock_issues
 
+    def test_not_all_ok_when_sock_bad(self, bad_sock_config: EW11Config):
+        result = EW11ValidationResult(
+            reachable=True, auth_ok=True, config=bad_sock_config,
+        )
+        assert result.uart_ok is True
+        assert result.sock_ok is False
+        assert result.all_ok is False
+
     def test_no_config_returns_empty_issues(self):
         result = EW11ValidationResult(reachable=False)
         assert result.uart_issues == {}

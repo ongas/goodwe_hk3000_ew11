@@ -384,4 +384,4 @@ class EW11ValidationResult:
 
     @property
     def all_ok(self) -> bool:
-        return self.reachable and self.auth_ok and self.uart_ok
+        return self.reachable and self.auth_ok and self.uart_ok and self.sock_ok
