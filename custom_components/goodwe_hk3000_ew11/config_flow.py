@@ -11,10 +11,14 @@ from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
 from .const import (
+    CONF_EW11_PASSWORD,
+    CONF_EW11_USERNAME,
     CONF_HOST,
     CONF_PORT,
     CONF_SLAVE_ID,
     CONF_UPDATE_INTERVAL,
+    DEFAULT_EW11_PASSWORD,
+    DEFAULT_EW11_USERNAME,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_SLAVE_ID,
@@ -74,6 +78,8 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=300, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
+                vol.Optional(CONF_EW11_USERNAME, default=DEFAULT_EW11_USERNAME): str,
+                vol.Optional(CONF_EW11_PASSWORD, default=DEFAULT_EW11_PASSWORD): str,
             }
         )
 
@@ -137,6 +143,14 @@ class HK3000OptionsFlow(config_entries.OptionsFlow):
                 ): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=300, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
+                vol.Optional(
+                    CONF_EW11_USERNAME,
+                    default=current_data.get(CONF_EW11_USERNAME, DEFAULT_EW11_USERNAME),
+                ): str,
+                vol.Optional(
+                    CONF_EW11_PASSWORD,
+                    default=current_data.get(CONF_EW11_PASSWORD, DEFAULT_EW11_PASSWORD),
+                ): str,
             }
         )
 

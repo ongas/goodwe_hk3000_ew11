@@ -8,7 +8,9 @@
           "host": "EW11 IP Address",
           "port": "EW11 TCP Port",
           "slave_id": "HK3000 Modbus Address",
-          "update_interval": "Update Interval (seconds)"
+          "update_interval": "Update Interval (seconds)",
+          "ew11_username": "EW11 Username",
+          "ew11_password": "EW11 Password"
         }
       }
     },
@@ -25,7 +27,9 @@
           "host": "EW11 IP Address",
           "port": "EW11 TCP Port",
           "slave_id": "HK3000 Modbus Address",
-          "update_interval": "Update Interval (seconds)"
+          "update_interval": "Update Interval (seconds)",
+          "ew11_username": "EW11 Username",
+          "ew11_password": "EW11 Password"
         }
       }
     },
