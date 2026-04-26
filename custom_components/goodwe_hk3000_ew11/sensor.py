@@ -58,14 +58,10 @@ class HK3000Sensor(HK3000Entity, SensorEntity):
     @property
     def native_value(self):
         """Return the sensor value."""
-        # Defensive: if no fresh data, try to use coordinator's last valid data
         if self.coordinator.data is None:
-            if hasattr(self.coordinator, '_last_valid_data') and self.coordinator._last_valid_data:
-                data = self.coordinator._last_valid_data
-            else:
-                return None
-        else:
-            data = self.coordinator.data
+            return None
+        
+        data = self.coordinator.data
         
         try:
             # Phase-specific instantaneous data
@@ -95,13 +91,17 @@ class HK3000Sensor(HK3000Entity, SensorEntity):
                 elif self._sensor_type == SensorType.POWER_FACTOR:
                     return round(data["total"]["power_factor"], 3)
                 elif self._sensor_type == SensorType.ENERGY_EXPORT:
-                    return round(data.get("energy_export", 0), 2)
+                    val = data.get("energy_export")
+                    return round(val, 2) if val is not None else None
                 elif self._sensor_type == SensorType.ENERGY_IMPORT:
-                    return round(data.get("energy_import", 0), 2)
+                    val = data.get("energy_import")
+                    return round(val, 2) if val is not None else None
                 elif self._sensor_type == SensorType.REACTIVE_ENERGY:
-                    return round(data.get("energy_reactive", 0), 2)
+                    val = data.get("energy_reactive")
+                    return round(val, 2) if val is not None else None
                 elif self._sensor_type == SensorType.APPARENT_ENERGY:
-                    return round(data.get("energy_apparent", 0), 2)
+                    val = data.get("energy_apparent")
+                    return round(val, 2) if val is not None else None
             
             # Frequency (not phase-specific)
             elif self._sensor_type == SensorType.FREQUENCY:

@@ -2,6 +2,7 @@
 
 import inspect
 import logging
+import random
 import struct
 import time
 from pymodbus import __version__
@@ -40,7 +41,7 @@ def u32(hi: int, lo: int) -> int:
 class HK3000Reader:
     """Reader for GoodWe HK3000 meter via Elfin EW11 TCP/RTU bridge."""
 
-    def __init__(self, host: str, port: int, slave_id: int, timeout: int = 5):
+    def __init__(self, host: str, port: int, slave_id: int, timeout: int = 3):
         """Initialize the reader.
         
         Args:
@@ -156,9 +157,9 @@ class HK3000Reader:
 
         warnings = []
 
-        # Read compact block (instantaneous data) with aggressive retry
+        # Read compact block (instantaneous data) with retry
         resp = None
-        max_attempts = 5  # Increased from 2 to handle high-load conditions
+        max_attempts = 3
         for attempt in range(max_attempts):
             try:
                 _LOGGER.debug(
@@ -269,6 +270,10 @@ class HK3000Reader:
             },
             "frequency": r[COMPACT_REGISTERS["FREQUENCY"]] / 100,
         }
+
+        # Small jittered pause before the energy read to reduce RS485 bus
+        # contention when the inverter is also polling the meter.
+        time.sleep(0.05 + random.random() * 0.1)
 
         # Read energy totals with retry
         energy_read = False

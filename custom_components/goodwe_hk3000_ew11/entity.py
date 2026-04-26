@@ -33,10 +33,10 @@ class HK3000Entity(CoordinatorEntity):
 
     @property
     def available(self) -> bool:
-        """Entity is available if the coordinator has valid data.
+        """Entity is available when the coordinator has recent data.
         
-        After the first successful read the coordinator always returns cached
-        data on failure, so coordinator.data stays set — the sensor should
-        never flip to unavailable during normal operation.
+        Uses coordinator.last_update_success so that entities flip to
+        unavailable once the stale-data threshold is exceeded and the
+        coordinator raises UpdateFailed.
         """
-        return self.coordinator.data is not None
+        return self.coordinator.last_update_success and self.coordinator.data is not None

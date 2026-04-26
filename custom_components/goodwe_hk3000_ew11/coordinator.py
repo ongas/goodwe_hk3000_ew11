@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 import logging
+import time
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -10,6 +11,10 @@ from .const import DEFAULT_UPDATE_INTERVAL, DOMAIN
 from .modbus_reader import HK3000Reader
 
 _LOGGER = logging.getLogger(__name__)
+
+# If no fresh data is received for this long, stop serving cached data and
+# mark entities unavailable so the user gets a clear signal.
+MAX_STALE_SECONDS = 30
 
 
 class HK3000Coordinator(DataUpdateCoordinator):
@@ -36,6 +41,7 @@ class HK3000Coordinator(DataUpdateCoordinator):
         self.device_info = {}
         self._consecutive_failures = 0
         self._last_valid_data = None  # Cache last successful read
+        self._last_success_mono: float | None = None  # monotonic timestamp of last fresh read
         
         super().__init__(
             hass,
@@ -43,6 +49,13 @@ class HK3000Coordinator(DataUpdateCoordinator):
             name=DOMAIN,
             update_interval=timedelta(seconds=update_interval),
         )
+
+    @property
+    def data_age_seconds(self) -> float | None:
+        """Seconds since last successful fresh read, or None if never read."""
+        if self._last_success_mono is None:
+            return None
+        return time.monotonic() - self._last_success_mono
 
     def _sync_update(self) -> tuple[dict, list[str]]:
         """Synchronous update (runs in executor thread).
@@ -94,35 +107,64 @@ class HK3000Coordinator(DataUpdateCoordinator):
         self._consecutive_failures = 0
         return data, warnings
 
+    def _is_data_stale(self) -> bool:
+        """True when cached data has been served too long without a fresh read."""
+        if self._last_success_mono is None:
+            return True
+        return (time.monotonic() - self._last_success_mono) > MAX_STALE_SECONDS
+
     async def _async_update_data(self) -> dict:
         """Fetch data from the device.
         
         Returns:
-            Dictionary with meter data (cached if update fails).
+            Dictionary with meter data (cached if update fails and not stale).
             
         Raises:
-            UpdateFailed: If no cached data available and update fails.
+            UpdateFailed: If no cached data available or cache is stale.
         """
         try:
             data, warnings = await self.hass.async_add_executor_job(
                 self._sync_update
             )
             if data is None:
-                # If we have cached data, use it and just log the warning
-                if self._last_valid_data:
-                    error_msg = warnings[0] if warnings else "Read failed, using cached data"
-                    _LOGGER.debug("Update failed but cached data available: %s", error_msg)
-                    return self._last_valid_data
-                
-                error_msg = warnings[0] if warnings else "Unknown error reading meter"
-                raise UpdateFailed(error_msg)
+                error_msg = warnings[0] if warnings else "Read failed"
+
+                # If cache is too old, stop masking the failure
+                if self._last_valid_data is None or self._is_data_stale():
+                    age = self.data_age_seconds
+                    _LOGGER.warning(
+                        "No fresh data for %.0fs (failures=%d): %s",
+                        age if age is not None else 0,
+                        self._consecutive_failures,
+                        error_msg,
+                    )
+                    raise UpdateFailed(error_msg)
+
+                # Cache still recent enough — serve it, but escalate logging
+                # every 10 failures so the user has visibility.
+                if self._consecutive_failures % 10 == 0 and self._consecutive_failures > 0:
+                    _LOGGER.warning(
+                        "Serving cached data (age %.1fs, %d consecutive failures): %s",
+                        self.data_age_seconds or 0,
+                        self._consecutive_failures,
+                        error_msg,
+                    )
+                else:
+                    _LOGGER.debug(
+                        "Using cached data (age %.1fs, failure %d): %s",
+                        self.data_age_seconds or 0,
+                        self._consecutive_failures,
+                        error_msg,
+                    )
+                return self._last_valid_data
 
             if warnings:
                 for warning in warnings:
                     _LOGGER.warning("Meter read warning: %s", warning)
 
-            # Cache successful data
+            # Fresh data — reset tracking
             self._last_valid_data = data
+            self._last_success_mono = time.monotonic()
             return data
         except UpdateFailed:
             raise
@@ -130,10 +172,11 @@ class HK3000Coordinator(DataUpdateCoordinator):
             # Unexpected error — force disconnect so the next poll gets a clean socket
             self._consecutive_failures += 1
             self.reader.disconnect()
-            if self._last_valid_data is not None:
+            if self._last_valid_data is not None and not self._is_data_stale():
                 _LOGGER.exception(
-                    "Unexpected error (attempt %d), using cached data",
+                    "Unexpected error (failure %d, age %.1fs), using cached data",
                     self._consecutive_failures,
+                    self.data_age_seconds or 0,
                 )
                 return self._last_valid_data
             raise UpdateFailed(f"Error communicating with HK3000: {exc}") from exc
