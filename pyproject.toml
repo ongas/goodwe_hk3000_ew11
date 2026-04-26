@@ -1,0 +1,15 @@
+[project]
+name = "goodwe-hk3000-ew11"
+version = "1.0.28"
+description = "Home Assistant integration for GoodWe HK3000 Smart Meter via Elfin EW11"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+log_cli = true
+log_cli_level = "DEBUG"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100

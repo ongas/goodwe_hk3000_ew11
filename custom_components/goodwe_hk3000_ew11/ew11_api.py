@@ -41,7 +41,7 @@ REQUIRED_SOCK = {
     "Protocol": "TCP-SERVER",
     "Local Port": "8899",
     "Timeout": "0",
-    "maxAccept": "1",
+    "maxAccept": "3",
 }
 
 
