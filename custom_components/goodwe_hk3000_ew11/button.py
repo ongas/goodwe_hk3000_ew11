@@ -123,14 +123,16 @@ class EW11ConfigureButton(ButtonEntity):
         self._lock = lock
         self._host = host
         self._entry_id = entry_id
-        self._attr_name = "EW11 Configure"
+        self._attr_name = "Update EW11 Config Now"
         self._attr_unique_id = f"{host}_{port}_ew11_configure"
         self._attr_device_info = device_info
 
     def _notify(self, message: str, title: str = "EW11 Configuration") -> None:
         """Create a persistent notification with a stable ID."""
-        self._hass.components.persistent_notification.async_create(
-            message, title=title, notification_id=self._NOTIFICATION_ID,
+        from homeassistant.components.persistent_notification import async_create
+        async_create(
+            self._hass, message, title=title,
+            notification_id=self._NOTIFICATION_ID,
         )
 
     async def async_press(self) -> None:
@@ -305,9 +307,11 @@ class EW11ValidateButton(ButtonEntity):
             result = await self._api.validate_config()
 
         message, title = format_validation_message(result, self._host)
+        from homeassistant.components.persistent_notification import async_create
         notification_id = f"{self._NOTIFICATION_ID}_{self._entry_id}"
-        self._hass.components.persistent_notification.async_create(
-            message, title=title, notification_id=notification_id,
+        async_create(
+            self._hass, message, title=title,
+            notification_id=notification_id,
         )
 
         if result.all_ok:
