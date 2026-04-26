@@ -132,6 +132,14 @@ class HK3000Reader:
 
         return True
 
+    def enforce_timeout(self) -> None:
+        """Re-apply socket timeout to guard against half-open connections."""
+        if self.client and self.client.socket:
+            try:
+                self.client.socket.settimeout(self.timeout)
+            except Exception:
+                pass
+
     def disconnect(self) -> None:
         """Disconnect from the EW11 bridge."""
         if self.client:

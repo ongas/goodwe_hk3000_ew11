@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,6 +12,7 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 from custom_components.goodwe_hk3000_ew11.coordinator import (
     HK3000Coordinator,
     MAX_STALE_SECONDS,
+    POLL_TIMEOUT_SECONDS,
 )
 
 
@@ -26,6 +28,7 @@ def _make_coordinator(hass=None) -> HK3000Coordinator:
     coord._consecutive_failures = 0
     coord._last_valid_data = None
     coord._last_success_mono = None
+    coord._executor_busy = False
     coord.name = "goodwe_hk3000_ew11"
     coord.logger = MagicMock()
     coord.last_update_success = True
@@ -173,3 +176,77 @@ class TestDataAge:
         coord = _make_coordinator()
         coord._last_success_mono = time.monotonic()
         assert coord._is_data_stale() is False
+
+
+class TestPollTimeout:
+    """Tests for executor timeout and busy-flag protection."""
+
+    @pytest.mark.asyncio
+    async def test_timeout_with_no_cache_raises(self):
+        coord = _make_coordinator()
+        coord.hass.async_add_executor_job.side_effect = asyncio.TimeoutError()
+
+        with pytest.raises(UpdateFailed, match="timed out"):
+            await coord._async_update_data()
+        assert coord._consecutive_failures == 1
+
+    @pytest.mark.asyncio
+    async def test_timeout_with_fresh_cache_returns_cache(self, sample_meter_data):
+        coord = _make_coordinator()
+        coord._last_valid_data = sample_meter_data
+        coord._last_success_mono = time.monotonic()
+        coord.hass.async_add_executor_job.side_effect = asyncio.TimeoutError()
+
+        data = await coord._async_update_data()
+        assert data is sample_meter_data
+        assert coord._consecutive_failures == 1
+
+    @pytest.mark.asyncio
+    async def test_timeout_with_stale_cache_raises(self, sample_meter_data):
+        coord = _make_coordinator()
+        coord._last_valid_data = sample_meter_data
+        coord._last_success_mono = time.monotonic() - MAX_STALE_SECONDS - 1
+        coord.hass.async_add_executor_job.side_effect = asyncio.TimeoutError()
+
+        with pytest.raises(UpdateFailed, match="timed out"):
+            await coord._async_update_data()
+
+    @pytest.mark.asyncio
+    async def test_executor_busy_skips_poll(self, sample_meter_data):
+        coord = _make_coordinator()
+        coord._executor_busy = True
+        coord._last_valid_data = sample_meter_data
+        coord._last_success_mono = time.monotonic()
+
+        data = await coord._async_update_data()
+        assert data is sample_meter_data
+        assert coord._consecutive_failures == 1
+        # async_add_executor_job should NOT have been called
+        coord.hass.async_add_executor_job.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_executor_busy_no_cache_raises(self):
+        coord = _make_coordinator()
+        coord._executor_busy = True
+
+        with pytest.raises(UpdateFailed, match="still stuck"):
+            await coord._async_update_data()
+
+    def test_sync_wrapper_clears_busy_flag(self):
+        coord = _make_coordinator()
+        coord._executor_busy = True
+        coord.reader.is_connected.return_value = True
+        coord.reader.read_meter_data.return_value = ({"test": 1}, [])
+
+        coord._sync_update_wrapper()
+        assert coord._executor_busy is False
+
+    def test_sync_wrapper_clears_flag_on_exception(self):
+        coord = _make_coordinator()
+        coord._executor_busy = True
+        coord.reader.is_connected.return_value = True
+        coord.reader.read_meter_data.side_effect = RuntimeError("boom")
+
+        with pytest.raises(RuntimeError):
+            coord._sync_update_wrapper()
+        assert coord._executor_busy is False

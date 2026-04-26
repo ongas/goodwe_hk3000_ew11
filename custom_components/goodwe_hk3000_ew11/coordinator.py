@@ -1,5 +1,6 @@
 """DataUpdateCoordinator for GoodWe HK3000 Smart Meter."""
 
+import asyncio
 from datetime import timedelta
 import logging
 import time
@@ -15,6 +16,10 @@ _LOGGER = logging.getLogger(__name__)
 # If no fresh data is received for this long, stop serving cached data and
 # mark entities unavailable so the user gets a clear signal.
 MAX_STALE_SECONDS = 30
+
+# Maximum time to wait for a single poll cycle before declaring it stuck.
+# Worst case: 3 retries × 1.5s timeout + energy read = ~8s, so 15s is generous.
+POLL_TIMEOUT_SECONDS = 15
 
 
 class HK3000Coordinator(DataUpdateCoordinator):
@@ -42,6 +47,7 @@ class HK3000Coordinator(DataUpdateCoordinator):
         self._consecutive_failures = 0
         self._last_valid_data = None  # Cache last successful read
         self._last_success_mono: float | None = None  # monotonic timestamp of last fresh read
+        self._executor_busy = False  # True while a sync poll is running in executor
         
         super().__init__(
             hass,
@@ -56,6 +62,18 @@ class HK3000Coordinator(DataUpdateCoordinator):
         if self._last_success_mono is None:
             return None
         return time.monotonic() - self._last_success_mono
+
+    def _sync_update_wrapper(self) -> tuple[dict, list[str]]:
+        """Wrapper that always clears _executor_busy when the thread finishes.
+        
+        This ensures that even if _async_update_data timed out and moved on,
+        the busy flag is cleared when the thread eventually completes, allowing
+        the next poll to proceed.
+        """
+        try:
+            return self._sync_update()
+        finally:
+            self._executor_busy = False
 
     def _sync_update(self) -> tuple[dict, list[str]]:
         """Synchronous update (runs in executor thread).
@@ -87,6 +105,9 @@ class HK3000Coordinator(DataUpdateCoordinator):
                 )
                 return None, ["Cannot connect to EW11 bridge"]
 
+        # Enforce socket timeout before each read to prevent hung sockets
+        self.reader.enforce_timeout()
+
         data, warnings = self.reader.read_meter_data()
 
         if data is None:
@@ -116,16 +137,49 @@ class HK3000Coordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict:
         """Fetch data from the device.
         
+        Wraps the synchronous poll in asyncio.wait_for() to prevent a hung
+        TCP socket from blocking the coordinator indefinitely. If the executor
+        thread doesn't return within POLL_TIMEOUT_SECONDS, we skip this cycle
+        and let the stale-data logic handle availability.
+        
         Returns:
             Dictionary with meter data (cached if update fails and not stale).
             
         Raises:
             UpdateFailed: If no cached data available or cache is stale.
         """
-        try:
-            data, warnings = await self.hass.async_add_executor_job(
-                self._sync_update
+        # If a previous poll is still stuck in the executor, skip this cycle
+        if self._executor_busy:
+            self._consecutive_failures += 1
+            _LOGGER.warning(
+                "Previous poll still running in executor (failure %d), skipping",
+                self._consecutive_failures,
             )
+            if self._last_valid_data is not None and not self._is_data_stale():
+                return self._last_valid_data
+            raise UpdateFailed("Poll skipped — previous poll still stuck")
+
+        self._executor_busy = True
+        try:
+            try:
+                data, warnings = await asyncio.wait_for(
+                    self.hass.async_add_executor_job(self._sync_update_wrapper),
+                    timeout=POLL_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                self._consecutive_failures += 1
+                _LOGGER.error(
+                    "Modbus poll timed out after %ds (failure %d) — "
+                    "executor thread may be stuck on a hung socket",
+                    POLL_TIMEOUT_SECONDS,
+                    self._consecutive_failures,
+                )
+                if self._last_valid_data is not None and not self._is_data_stale():
+                    return self._last_valid_data
+                raise UpdateFailed(
+                    f"Modbus poll timed out after {POLL_TIMEOUT_SECONDS}s"
+                )
+
             if data is None:
                 error_msg = warnings[0] if warnings else "Read failed"
 
