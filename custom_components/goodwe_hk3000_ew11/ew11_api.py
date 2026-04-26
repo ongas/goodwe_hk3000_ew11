@@ -182,15 +182,31 @@ class EW11Api:
             _LOGGER.info("EW11 UART settings already correct, no write needed")
             return pre_config
 
-        # Build the UART payload with required settings
+        # Build the UART payload using the EW11 *API input* key names.
+        # IMPORTANT: The XML export uses different names (e.g. "gapTime Size",
+        # "Buffer Size") than the SET_CONFIG API expects ("GapTime", "BufSize").
+        # The API input names match the web form field names in uart.html.
+        # All fields must be sent — partial updates are silently ignored.
         uart_payload = {
             "Baudrate": 9600,
             "Databits": 8,
             "Stopbits": 1,
             "Parity": "NONE",
-            "Protocol": "NONE",
-            "Buffer Size": 512,
-            "gapTime Size": 100,
+            "FlowCtrl": 2,           # Half-Duplex
+            "SoftwareFlowCtrl": 0,    # Disable
+            "Xon": "11",
+            "Xoff": "13",
+            "UartProto": "NONE",
+            "FrameLen": 16,
+            "FrameTime": 100,
+            "TagEnable": 0,           # Disable
+            "TagHead": "00",
+            "TagTail": "00",
+            "BufSize": 512,
+            "GapTime": 100,
+            "CliGetIn": "Serial-String",
+            "SerailString": "+++",    # Note: EW11 firmware typo "Serail"
+            "CliWaitTime": 300,
         }
 
         _LOGGER.info("Writing UART config to EW11: %s", uart_payload)

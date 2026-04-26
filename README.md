@@ -91,7 +91,7 @@ The EW11 must be in **transparent mode** for this integration to work.
 - Stop Bits: **1**
 - Parity: **NONE**
 - Buffer Size: 512
-- Gap Time: 50 ms
+- Gap Time: **100** ms _(critical — see note below)_
 - Flow Control: **None**
 - **UART Protocol: NONE**
 
@@ -254,12 +254,14 @@ The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames 
 | Stop Bits         | **1**              | **1**, 2                          |
 | Parity            | **NONE**           | **NONE**, ODD, EVEN               |
 | Buffer Size       | 512                | min 32                            |
-| Gap Time (ms)     | **50**             | 10–1000                           |
+| Gap Time (ms)     | **100**            | 10–1000                           |
 | Flow Control      | **None**           | **None**, Hardware, Software       |
 | UART Protocol     | **NONE**           | **NONE**, Modbus, Frame            |
 | CLI Access        | Disable            | **Disable**, Serial-String, Always |
 
 > `UART Protocol` must be set to `NONE` (transparent mode). If set to `Modbus`, the EW11 adds Modbus TCP framing and will not pass raw RTU frames correctly.
+
+> ⚠️ **Gap Time must be 100 ms or higher.** At 9600 baud, a full 23-register Modbus RTU response (~51 bytes) takes ~53 ms to transmit. If Gap Time is lower than the transmission time (e.g. the 50 ms default), the EW11 detects a false "silence gap" mid-response and splits it into two TCP packets, causing incomplete reads.
 
 **Socket Settings** (`http://<your-EW11-IP-Address>/socket.html`):
 
