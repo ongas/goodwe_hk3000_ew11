@@ -159,9 +159,11 @@ class HK3000Reader:
 
         # Read compact block (instantaneous data) with retry.
         # Keep total blocking time short — at 9600 baud a 23-register
-        # response is ~50ms, so 1.5s timeout is generous.
+        # response is ~50ms, so 1.5s timeout is generous.  The EW11's
+        # gapTime (50ms) can split responses mid-stream, so retries
+        # are essential.
         resp = None
-        max_attempts = 2
+        max_attempts = 3
         for attempt in range(max_attempts):
             try:
                 _LOGGER.debug(

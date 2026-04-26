@@ -33,7 +33,7 @@ REQUIRED_UART = {
     "Parity": "NONE",
     "Protocol": "NONE",
     "Buffer Size": "512",
-    "gapTime Size": "50",
+    "gapTime Size": "100",
 }
 
 # Required EW11 SOCK settings (read-only validation)
@@ -190,7 +190,7 @@ class EW11Api:
             "Parity": "NONE",
             "Protocol": "NONE",
             "Buffer Size": 512,
-            "gapTime Size": 50,
+            "gapTime Size": 100,
         }
 
         _LOGGER.info("Writing UART config to EW11: %s", uart_payload)
