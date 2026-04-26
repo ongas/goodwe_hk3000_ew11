@@ -41,7 +41,7 @@ def u32(hi: int, lo: int) -> int:
 class HK3000Reader:
     """Reader for GoodWe HK3000 meter via Elfin EW11 TCP/RTU bridge."""
 
-    def __init__(self, host: str, port: int, slave_id: int, timeout: int = 3):
+    def __init__(self, host: str, port: int, slave_id: int, timeout: float = 1.5):
         """Initialize the reader.
         
         Args:
@@ -157,9 +157,11 @@ class HK3000Reader:
 
         warnings = []
 
-        # Read compact block (instantaneous data) with retry
+        # Read compact block (instantaneous data) with retry.
+        # Keep total blocking time short — at 9600 baud a 23-register
+        # response is ~50ms, so 1.5s timeout is generous.
         resp = None
-        max_attempts = 3
+        max_attempts = 2
         for attempt in range(max_attempts):
             try:
                 _LOGGER.debug(
@@ -261,7 +263,7 @@ class HK3000Reader:
 
         # Read energy totals with retry
         energy_read = False
-        for energy_attempt in range(3):  # 3 attempts for energy registers
+        for energy_attempt in range(2):  # 2 attempts for energy registers
             try:
                 resp2 = self.client.read_holding_registers(
                     ENERGY_START, count=ENERGY_COUNT,
@@ -280,14 +282,14 @@ class HK3000Reader:
                     data["energy_apparent"] = u32(e[appar_hi], e[appar_lo]) / ENERGY_SCALE
                     energy_read = True
                     break
-                elif energy_attempt < 2:
+                elif energy_attempt < 1:
                     # Retry on incomplete response
                     _LOGGER.debug("Energy register read incomplete, retrying...")
                     time.sleep(0.05)
                 else:
                     warnings.append("Could not read energy registers")
             except Exception as exc:
-                if energy_attempt < 2:
+                if energy_attempt < 1:
                     _LOGGER.debug("Energy register read error, retrying: %s", exc)
                     time.sleep(0.05)
                 else:
