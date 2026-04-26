@@ -175,23 +175,7 @@ class HK3000Reader:
                 if resp and not resp.isError() and len(resp.registers) >= COMPACT_COUNT:
                     break  # Success, exit retry loop
                 
-                # If we got an empty/error response and were using device_id, try slave param
-                if (resp is None or (hasattr(resp, 'isError') and resp.isError()) or 
-                    (hasattr(resp, 'registers') and len(resp.registers) == 0)) and self._slave_kwarg == 'device_id':
-                    _LOGGER.debug(
-                        "Attempt with device_id failed, trying slave parameter"
-                    )
-                    retry_resp = self.client.read_holding_registers(
-                        COMPACT_START, count=COMPACT_COUNT,
-                        slave=self.slave_id,
-                    )
-                    if retry_resp is not None and not retry_resp.isError() and len(retry_resp.registers) >= COMPACT_COUNT:
-                        _LOGGER.info("Recovered with slave parameter; updating for future use")
-                        self._slave_kwarg = 'slave'
-                        resp = retry_resp
-                        break
-                    
-                # Partial response - log and retry
+                # Partial or error response - log and retry
                 if resp and hasattr(resp, 'registers') and 0 < len(resp.registers) < COMPACT_COUNT:
                     _LOGGER.warning(
                         "Incomplete register read: got %d/%d (attempt %d/%d), retrying...",
