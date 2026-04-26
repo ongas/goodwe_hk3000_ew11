@@ -23,7 +23,7 @@ from custom_components.goodwe_hk3000_ew11.ew11_api import (
     _parse_ew11_xml,
 )
 
-from conftest import (
+from tests.conftest import (
     SAMPLE_EW11_XML_BAD_SOCK,
     SAMPLE_EW11_XML_BAD_UART,
     SAMPLE_EW11_XML_OK,

@@ -24,7 +24,7 @@ from custom_components.goodwe_hk3000_ew11.ew11_api import (
     EW11ValidationResult,
 )
 
-from conftest import TEST_HOST, TEST_PORT
+from tests.conftest import TEST_HOST, TEST_PORT
 
 
 # ── format_validation_message ─────────────────────────────────────
@@ -240,14 +240,10 @@ class TestEW11ValidateButton:
         )
 
         with patch(
-            "custom_components.goodwe_hk3000_ew11.button.async_create"
+            "homeassistant.components.persistent_notification.async_create",
         ) as mock_create:
-            # Patch the import inside async_press
-            with patch(
-                "homeassistant.components.persistent_notification.async_create",
-                mock_create,
-            ):
-                await btn.async_press()
+            await btn.async_press()
+            mock_create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_press_skipped_when_locked(self):

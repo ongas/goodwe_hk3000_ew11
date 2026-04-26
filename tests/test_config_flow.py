@@ -1,21 +1,25 @@
-"""Tests for config_flow.py."""
+"""Tests for config_flow.py.
+
+Note: config_flow.py imports ConfigFlowResult which requires HA 2024.1+.
+These tests are skipped if the local HA version doesn't support it.
+The CI workflow installs a compatible HA version.
+"""
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from custom_components.goodwe_hk3000_ew11.config_flow import HK3000ConfigFlow
-from custom_components.goodwe_hk3000_ew11.const import (
-    CONF_HOST,
-    CONF_PORT,
-    CONF_SLAVE_ID,
-    CONF_UPDATE_INTERVAL,
-    DEFAULT_PORT,
-    DEFAULT_SLAVE_ID,
-    DEFAULT_UPDATE_INTERVAL,
-    DOMAIN,
+try:
+    from custom_components.goodwe_hk3000_ew11.config_flow import _test_connection
+    _HAS_CONFIG_FLOW = True
+except ImportError:
+    _HAS_CONFIG_FLOW = False
+
+pytestmark = pytest.mark.skipif(
+    not _HAS_CONFIG_FLOW,
+    reason="Requires HA with ConfigFlowResult (2024.1+)",
 )
 
 
@@ -23,8 +27,6 @@ class TestConfigFlowTestConnection:
     """Tests for the _test_connection helper."""
 
     def test_connection_success(self):
-        from custom_components.goodwe_hk3000_ew11.config_flow import _test_connection
-
         with patch(
             "custom_components.goodwe_hk3000_ew11.config_flow.HK3000Reader"
         ) as MockReader:
@@ -34,8 +36,6 @@ class TestConfigFlowTestConnection:
             instance.disconnect.assert_called_once()
 
     def test_connection_failure(self):
-        from custom_components.goodwe_hk3000_ew11.config_flow import _test_connection
-
         with patch(
             "custom_components.goodwe_hk3000_ew11.config_flow.HK3000Reader"
         ) as MockReader:
@@ -45,8 +45,6 @@ class TestConfigFlowTestConnection:
             instance.disconnect.assert_called_once()
 
     def test_connection_exception_still_disconnects(self):
-        from custom_components.goodwe_hk3000_ew11.config_flow import _test_connection
-
         with patch(
             "custom_components.goodwe_hk3000_ew11.config_flow.HK3000Reader"
         ) as MockReader:
