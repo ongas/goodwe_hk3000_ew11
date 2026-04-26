@@ -19,7 +19,7 @@ from .const import (
     DEFAULT_PORT,
     DOMAIN,
 )
-from .ew11_api import EW11Api, EW11ApiError, EW11SockCorruptedError
+from .ew11_api import EW11Api, EW11ApiError, EW11SockCorruptedError, EW11ValidationResult
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ async def async_setup_entry(
     async_add_entities([
         EW11RestartButton(api, lock, host, port, device_info),
         EW11ConfigureButton(hass, api, lock, host, port, device_info, entry.entry_id),
+        EW11ValidateButton(hass, api, lock, host, port, device_info, entry.entry_id),
     ])
 
 
@@ -65,6 +66,7 @@ class EW11RestartButton(ButtonEntity):
 
     _attr_device_class = ButtonDeviceClass.RESTART
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_entity_registry_enabled_default = False
     _attr_icon = "mdi:restart"
 
     def __init__(
@@ -101,6 +103,7 @@ class EW11ConfigureButton(ButtonEntity):
     """Button to configure EW11 UART settings for HK3000 communication."""
 
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_entity_registry_enabled_default = False
     _attr_icon = "mdi:cog"
 
     _NOTIFICATION_ID = "goodwe_hk3000_ew11_configure"
@@ -204,3 +207,110 @@ class EW11ConfigureButton(ButtonEntity):
                     f"Check the EW11 at http://{self._host}/",
                     title="EW11 Configuration — WARNING",
                 )
+
+
+def format_validation_message(result: EW11ValidationResult, host: str) -> tuple[str, str]:
+    """Format a validation result into (message, title) for notifications.
+
+    Shared by both the Validate button and startup check.
+    """
+    if not result.reachable:
+        return (
+            f"❌ EW11 at `{host}` is unreachable.\n\n"
+            f"Check network connectivity and EW11 power.",
+            "EW11 Validation — Unreachable",
+        )
+
+    if not result.auth_ok:
+        return (
+            f"🔒 EW11 authentication failed.\n\n"
+            f"Update credentials in integration options "
+            f"(Settings → Integrations → GoodWe HK3000 → Configure).",
+            "EW11 Validation — Auth Failed",
+        )
+
+    if result.error:
+        return (
+            f"❌ Error reading EW11 config: {result.error}",
+            "EW11 Validation — Error",
+        )
+
+    parts: list[str] = []
+
+    if result.uart_ok:
+        parts.append("✅ UART settings are correct.")
+    else:
+        issues = "\n".join(
+            f"- **{key}**: `{current}` → should be `{required}`"
+            for key, (current, required) in result.uart_issues.items()
+        )
+        parts.append(
+            f"⚠️ UART settings need fixing:\n{issues}\n\n"
+            f"Press the **EW11 Configure** button to fix automatically."
+        )
+
+    if not result.sock_ok:
+        issues = "\n".join(
+            f"- **{key}**: `{current}` → should be `{required}`"
+            for key, (current, required) in result.sock_issues.items()
+        )
+        parts.append(
+            f"⚠️ SOCK settings are incorrect:\n{issues}\n\n"
+            f"These cannot be fixed automatically. "
+            f"Check the EW11 web UI at http://{host}/"
+        )
+
+    if result.all_ok:
+        title = "EW11 Validation — OK"
+    else:
+        title = "EW11 Validation — Issues Found"
+
+    return "\n\n".join(parts), title
+
+
+class EW11ValidateButton(ButtonEntity):
+    """Button to validate EW11 configuration against requirements."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:check-network"
+
+    _NOTIFICATION_ID = "goodwe_hk3000_ew11_validate"
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: EW11Api,
+        lock: asyncio.Lock,
+        host: str,
+        port: int,
+        device_info: DeviceInfo,
+        entry_id: str,
+    ) -> None:
+        self._hass = hass
+        self._api = api
+        self._lock = lock
+        self._host = host
+        self._entry_id = entry_id
+        self._attr_name = "EW11 Validate Config"
+        self._attr_unique_id = f"{host}_{port}_ew11_validate"
+        self._attr_device_info = device_info
+
+    async def async_press(self) -> None:
+        """Validate EW11 config and report via persistent notification."""
+        if self._lock.locked():
+            _LOGGER.warning("EW11 operation already in progress, ignoring validate")
+            return
+
+        async with self._lock:
+            result = await self._api.validate_config()
+
+        message, title = format_validation_message(result, self._host)
+        notification_id = f"{self._NOTIFICATION_ID}_{self._entry_id}"
+        self._hass.components.persistent_notification.async_create(
+            message, title=title, notification_id=notification_id,
+        )
+
+        if result.all_ok:
+            _LOGGER.info("EW11 validation passed — all settings correct")
+        else:
+            _LOGGER.warning("EW11 validation found issues: %s", message)

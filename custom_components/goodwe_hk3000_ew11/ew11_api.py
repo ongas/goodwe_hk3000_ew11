@@ -144,6 +144,10 @@ class EW11Api:
                 timeout=self._timeout,
             ) as resp:
                 text = await resp.text()
+                if resp.status == 401:
+                    raise EW11AuthError(
+                        f"Authentication failed (HTTP 401) — check credentials"
+                    )
                 if resp.status != 200:
                     raise EW11ApiError(
                         f"HTTP {resp.status} from EW11: {text}"
@@ -301,6 +305,32 @@ class EW11Api:
         _LOGGER.warning("EW11 did not come back after %d seconds", max_wait)
         return False
 
+    async def validate_config(self) -> EW11ValidationResult:
+        """Read EW11 config and validate against requirements.
+
+        Never raises — all errors are captured in the result.
+        """
+        try:
+            config = await self.read_config()
+        except EW11AuthError as err:
+            return EW11ValidationResult(
+                reachable=True, auth_ok=False,
+                error=str(err),
+            )
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            return EW11ValidationResult(
+                reachable=False, error=f"EW11 unreachable: {err}",
+            )
+        except EW11ApiError as err:
+            return EW11ValidationResult(
+                reachable=True, auth_ok=True,
+                error=f"Config read error: {err}",
+            )
+
+        return EW11ValidationResult(
+            reachable=True, auth_ok=True, config=config,
+        )
+
     async def test_connection(self) -> bool:
         """Test that the EW11 web interface is reachable with given credentials."""
         try:
@@ -319,5 +349,39 @@ class EW11ApiError(Exception):
     """General EW11 API error."""
 
 
+class EW11AuthError(EW11ApiError):
+    """Authentication failed (HTTP 401)."""
+
+
 class EW11SockCorruptedError(EW11ApiError):
     """SOCK config was corrupted by an API write — factory reset may be needed."""
+
+
+@dataclass
+class EW11ValidationResult:
+    """Result of a validate_config() operation."""
+
+    reachable: bool = False
+    auth_ok: bool = False
+    config: EW11Config | None = None
+    error: str | None = None
+
+    @property
+    def uart_ok(self) -> bool:
+        return self.config is not None and self.config.is_uart_ok
+
+    @property
+    def sock_ok(self) -> bool:
+        return self.config is not None and self.config.is_sock_ok
+
+    @property
+    def uart_issues(self) -> dict[str, tuple[str, str]]:
+        return self.config.uart_issues if self.config else {}
+
+    @property
+    def sock_issues(self) -> dict[str, tuple[str, str]]:
+        return self.config.sock_issues if self.config else {}
+
+    @property
+    def all_ok(self) -> bool:
+        return self.reachable and self.auth_ok and self.uart_ok
