@@ -1,6 +1,6 @@
 {
   "domain": "goodwe_hk3000_rs485bridge",
-  "name": "GoodWe HK3000 Smart Meter",
+  "name": "GoodWe HK3000 Smart Meter via RS485 TCP Bridge",
   "codeowners": [],
   "config_flow": true,
   "documentation": "https://github.com/ongas/goodwe_hk3000_rs485bridge",
@@ -10,5 +10,5 @@
   "requirements": [
     "pymodbus>=3.3.0"
   ],
-  "version": "0.9.33"
+  "version": "0.9.34"
 }

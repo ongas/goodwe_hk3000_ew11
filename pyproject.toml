@@ -1,6 +1,6 @@
 [project]
 name = "goodwe-hk3000-rs485bridge"
-version = "0.9.33"
+version = "0.9.34"
 description = "Home Assistant integration for GoodWe HK3000 Smart Meter via RS485 TCP bridge"
 requires-python = ">=3.12"
 
