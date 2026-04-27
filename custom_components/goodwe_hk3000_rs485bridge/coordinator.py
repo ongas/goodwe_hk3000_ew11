@@ -37,8 +37,8 @@ class HK3000Coordinator(DataUpdateCoordinator):
         
         Args:
             hass: Home Assistant instance
-            host: IP address of EW11 bridge
-            port: TCP port of EW11 bridge
+            host: IP address of RS485 bridge
+            port: TCP port of RS485 bridge
             slave_id: Modbus slave ID of HK3000
             update_interval: Update interval in seconds (can be decimal)
         """
@@ -84,7 +84,7 @@ class HK3000Coordinator(DataUpdateCoordinator):
         - If read fails on a "connected" socket (stale connection): force
           disconnect and fail immediately. The next poll cycle will see the
           disconnected state and establish a clean connection. This avoids
-          blocking the executor with sleep delays and lets the EW11's TCP
+          blocking the executor with sleep delays and lets the bridge.s TCP
           stack release the old socket naturally between polls.
         - If consecutive failures exceed threshold, force full disconnect/reconnect.
         """
@@ -100,10 +100,10 @@ class HK3000Coordinator(DataUpdateCoordinator):
             if not self.reader.connect():
                 self._consecutive_failures += 1
                 _LOGGER.debug(
-                    "Cannot connect to EW11 (attempt %d)",
+                    "Cannot connect to bridge (attempt %d)",
                     self._consecutive_failures,
                 )
-                return None, ["Cannot connect to EW11 bridge"]
+                return None, ["Cannot connect to bridge bridge"]
 
         # Enforce socket timeout before each read to prevent hung sockets
         self.reader.enforce_timeout()
@@ -122,7 +122,7 @@ class HK3000Coordinator(DataUpdateCoordinator):
 
         if self._consecutive_failures > 0:
             _LOGGER.info(
-                "EW11 recovered after %d consecutive failures",
+                "Bridge recovered after %d consecutive failures",
                 self._consecutive_failures,
             )
         self._consecutive_failures = 0

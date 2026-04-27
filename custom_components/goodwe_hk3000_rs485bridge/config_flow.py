@@ -1,4 +1,4 @@
-"""Config flow for GoodWe HK3000 EW11 Smart Meter integration."""
+"""Config flow for GoodWe HK3000 RS485 bridge Smart Meter integration."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
 from .const import (
-    CONF_EW11_PASSWORD,
-    CONF_EW11_USERNAME,
+    CONF_BRIDGE_PASSWORD,
+    CONF_BRIDGE_USERNAME,
     CONF_HOST,
     CONF_PORT,
     CONF_SLAVE_ID,
     CONF_UPDATE_INTERVAL,
-    DEFAULT_EW11_PASSWORD,
-    DEFAULT_EW11_USERNAME,
+    DEFAULT_BRIDGE_PASSWORD,
+    DEFAULT_BRIDGE_USERNAME,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_SLAVE_ID,
@@ -40,7 +40,7 @@ def _test_connection(host: str, port: int, slave_id: int) -> bool:
 
 
 class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow for GoodWe HK3000 EW11 integration."""
+    """Config flow for GoodWe HK3000 RS485 bridge integration."""
 
     VERSION = 1
 
@@ -78,8 +78,8 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL): NumberSelector(
                     NumberSelectorConfig(min=0.1, max=300, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
-                vol.Optional(CONF_EW11_USERNAME, default=DEFAULT_EW11_USERNAME): str,
-                vol.Optional(CONF_EW11_PASSWORD, default=DEFAULT_EW11_PASSWORD): str,
+                vol.Optional(CONF_BRIDGE_USERNAME, default=DEFAULT_BRIDGE_USERNAME): str,
+                vol.Optional(CONF_BRIDGE_PASSWORD, default=DEFAULT_BRIDGE_PASSWORD): str,
             }
         )
 
@@ -88,7 +88,7 @@ class HK3000ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders={
-                "host_description": "IP address of the Elfin EW11 bridge",
+                "host_description": "IP address of the RS485 bridge",
             },
         )
 
@@ -144,12 +144,12 @@ class HK3000OptionsFlow(config_entries.OptionsFlow):
                     NumberSelectorConfig(min=0.1, max=300, step=0.1, mode=NumberSelectorMode.BOX)
                 ),
                 vol.Optional(
-                    CONF_EW11_USERNAME,
-                    default=current_data.get(CONF_EW11_USERNAME, DEFAULT_EW11_USERNAME),
+                    CONF_BRIDGE_USERNAME,
+                    default=current_data.get(CONF_BRIDGE_USERNAME, DEFAULT_BRIDGE_USERNAME),
                 ): str,
                 vol.Optional(
-                    CONF_EW11_PASSWORD,
-                    default=current_data.get(CONF_EW11_PASSWORD, DEFAULT_EW11_PASSWORD),
+                    CONF_BRIDGE_PASSWORD,
+                    default=current_data.get(CONF_BRIDGE_PASSWORD, DEFAULT_BRIDGE_PASSWORD),
                 ): str,
             }
         )
@@ -159,6 +159,6 @@ class HK3000OptionsFlow(config_entries.OptionsFlow):
             data_schema=schema,
             errors=errors,
             description_placeholders={
-                "host_description": "IP address of the Elfin EW11 bridge",
+                "host_description": "IP address of the RS485 bridge",
             },
         )

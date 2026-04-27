@@ -1,7 +1,7 @@
 [project]
-name = "goodwe-hk3000-ew11"
-version = "1.0.28"
-description = "Home Assistant integration for GoodWe HK3000 Smart Meter via Elfin EW11"
+name = "goodwe-hk3000-rs485bridge"
+version = "0.9.33"
+description = "Home Assistant integration for GoodWe HK3000 Smart Meter via RS485 TCP bridge"
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]

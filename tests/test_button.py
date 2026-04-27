@@ -7,21 +7,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.goodwe_hk3000_ew11.button import (
-    EW11ConfigureButton,
-    EW11RestartButton,
-    EW11ValidateButton,
+from custom_components.goodwe_hk3000_rs485bridge.button import (
+    RS485BridgeConfigureButton,
+    RS485BridgeRestartButton,
+    RS485BridgeValidateButton,
     _get_lock,
-    _ew11_locks,
+    _bridge_locks,
     format_validation_message,
 )
-from custom_components.goodwe_hk3000_ew11.ew11_api import (
-    EW11Api,
-    EW11ApiError,
-    EW11Config,
-    EW11ConfigureResult,
-    EW11SockCorruptedError,
-    EW11ValidationResult,
+from custom_components.goodwe_hk3000_rs485bridge.bridge_api import (
+    RS485BridgeApi,
+    RS485BridgeApiError,
+    RS485BridgeConfig,
+    RS485BridgeConfigureResult,
+    RS485BridgeSockCorruptedError,
+    RS485BridgeValidationResult,
 )
 
 from tests.conftest import TEST_HOST, TEST_PORT
@@ -32,35 +32,35 @@ class TestFormatValidationMessage:
     """Pure function tests for format_validation_message()."""
 
     def test_unreachable(self):
-        result = EW11ValidationResult(reachable=False, error="timeout")
+        result = RS485BridgeValidationResult(reachable=False, error="timeout")
         msg, title = format_validation_message(result, TEST_HOST)
         assert "unreachable" in msg.lower()
         assert "Unreachable" in title
 
     def test_auth_failed(self):
-        result = EW11ValidationResult(reachable=True, auth_ok=False, error="401")
+        result = RS485BridgeValidationResult(reachable=True, auth_ok=False, error="401")
         msg, title = format_validation_message(result, TEST_HOST)
         assert "authentication failed" in msg.lower()
         assert "Auth Failed" in title
 
     def test_api_error(self):
-        result = EW11ValidationResult(
+        result = RS485BridgeValidationResult(
             reachable=True, auth_ok=True, error="XML parse error",
         )
         msg, title = format_validation_message(result, TEST_HOST)
         assert "XML parse error" in msg
         assert "Error" in title
 
-    def test_all_ok(self, good_ew11_config):
-        result = EW11ValidationResult(
-            reachable=True, auth_ok=True, config=good_ew11_config,
+    def test_all_ok(self, good_bridge_config):
+        result = RS485BridgeValidationResult(
+            reachable=True, auth_ok=True, config=good_bridge_config,
         )
         msg, title = format_validation_message(result, TEST_HOST)
         assert "✅" in msg
         assert "OK" in title
 
     def test_uart_issues(self, bad_uart_config):
-        result = EW11ValidationResult(
+        result = RS485BridgeValidationResult(
             reachable=True, auth_ok=True, config=bad_uart_config,
         )
         msg, title = format_validation_message(result, TEST_HOST)
@@ -69,7 +69,7 @@ class TestFormatValidationMessage:
         assert "Issues" in title
 
     def test_sock_issues(self, bad_sock_config):
-        result = EW11ValidationResult(
+        result = RS485BridgeValidationResult(
             reachable=True, auth_ok=True, config=bad_sock_config,
         )
         msg, title = format_validation_message(result, TEST_HOST)
@@ -82,45 +82,45 @@ class TestGetLock:
     """Tests for per-entry lock management."""
 
     def test_creates_lock_on_first_call(self):
-        _ew11_locks.clear()
+        _bridge_locks.clear()
         lock = _get_lock("test_entry")
         assert isinstance(lock, asyncio.Lock)
-        assert "test_entry" in _ew11_locks
+        assert "test_entry" in _bridge_locks
 
     def test_returns_same_lock(self):
-        _ew11_locks.clear()
+        _bridge_locks.clear()
         lock1 = _get_lock("entry_a")
         lock2 = _get_lock("entry_a")
         assert lock1 is lock2
 
 
-# ── EW11RestartButton ─────────────────────────────────────────────
-class TestEW11RestartButton:
+# ── RS485BridgeRestartButton ─────────────────────────────────────────────
+class TestRS485BridgeRestartButton:
     """Tests for the restart button."""
 
     def test_disabled_by_default(self):
-        api = MagicMock(spec=EW11Api)
+        api = MagicMock(spec=RS485BridgeApi)
         lock = asyncio.Lock()
         device_info = MagicMock()
-        btn = EW11RestartButton(api, lock, TEST_HOST, TEST_PORT, device_info)
+        btn = RS485BridgeRestartButton(api, lock, TEST_HOST, TEST_PORT, device_info)
         assert btn._attr_entity_registry_enabled_default is False
 
     @pytest.mark.asyncio
     async def test_press_calls_restart(self):
-        api = AsyncMock(spec=EW11Api)
+        api = AsyncMock(spec=RS485BridgeApi)
         lock = asyncio.Lock()
         device_info = MagicMock()
-        btn = EW11RestartButton(api, lock, TEST_HOST, TEST_PORT, device_info)
+        btn = RS485BridgeRestartButton(api, lock, TEST_HOST, TEST_PORT, device_info)
 
         await btn.async_press()
         api.restart.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_press_skipped_when_locked(self):
-        api = AsyncMock(spec=EW11Api)
+        api = AsyncMock(spec=RS485BridgeApi)
         lock = asyncio.Lock()
         device_info = MagicMock()
-        btn = EW11RestartButton(api, lock, TEST_HOST, TEST_PORT, device_info)
+        btn = RS485BridgeRestartButton(api, lock, TEST_HOST, TEST_PORT, device_info)
 
         async with lock:
             await btn.async_press()
@@ -128,26 +128,26 @@ class TestEW11RestartButton:
 
     @pytest.mark.asyncio
     async def test_press_handles_api_error(self):
-        api = AsyncMock(spec=EW11Api)
-        api.restart.side_effect = EW11ApiError("failed")
+        api = AsyncMock(spec=RS485BridgeApi)
+        api.restart.side_effect = RS485BridgeApiError("failed")
         lock = asyncio.Lock()
         device_info = MagicMock()
-        btn = EW11RestartButton(api, lock, TEST_HOST, TEST_PORT, device_info)
+        btn = RS485BridgeRestartButton(api, lock, TEST_HOST, TEST_PORT, device_info)
 
         await btn.async_press()  # Should not raise
 
 
-# ── EW11ConfigureButton ───────────────────────────────────────────
-class TestEW11ConfigureButton:
+# ── RS485BridgeConfigureButton ───────────────────────────────────────────
+class TestRS485BridgeConfigureButton:
     """Tests for the configure button."""
 
     def _make_button(self):
         hass = MagicMock()
         hass.data = {}
-        api = AsyncMock(spec=EW11Api)
+        api = AsyncMock(spec=RS485BridgeApi)
         lock = asyncio.Lock()
         device_info = MagicMock()
-        btn = EW11ConfigureButton(
+        btn = RS485BridgeConfigureButton(
             hass, api, lock, TEST_HOST, TEST_PORT, device_info, "test_entry",
         )
         return btn, api, hass
@@ -159,7 +159,7 @@ class TestEW11ConfigureButton:
     @pytest.mark.asyncio
     async def test_no_changes_notification(self):
         btn, api, _ = self._make_button()
-        api.configure_uart.return_value = EW11ConfigureResult(
+        api.configure_uart.return_value = RS485BridgeConfigureResult(
             changed=False, config=MagicMock(),
         )
         with patch.object(btn, "_notify") as mock_notify:
@@ -168,11 +168,11 @@ class TestEW11ConfigureButton:
             assert "already correct" in mock_notify.call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_changes_applied_and_restart(self, good_ew11_config):
+    async def test_changes_applied_and_restart(self, good_bridge_config):
         btn, api, _ = self._make_button()
-        api.configure_uart.return_value = EW11ConfigureResult(
+        api.configure_uart.return_value = RS485BridgeConfigureResult(
             changed=True,
-            config=good_ew11_config,
+            config=good_bridge_config,
             changed_fields={"gapTime Size": ("50", "100")},
         )
         api.restart_and_wait.return_value = True
@@ -185,7 +185,7 @@ class TestEW11ConfigureButton:
     @pytest.mark.asyncio
     async def test_sock_corruption_error(self):
         btn, api, _ = self._make_button()
-        api.configure_uart.side_effect = EW11SockCorruptedError("SOCK corrupted!")
+        api.configure_uart.side_effect = RS485BridgeSockCorruptedError("SOCK corrupted!")
 
         with patch.object(btn, "_notify") as mock_notify:
             await btn.async_press()
@@ -195,7 +195,7 @@ class TestEW11ConfigureButton:
     @pytest.mark.asyncio
     async def test_api_error(self):
         btn, api, _ = self._make_button()
-        api.configure_uart.side_effect = EW11ApiError("write failed")
+        api.configure_uart.side_effect = RS485BridgeApiError("write failed")
 
         with patch.object(btn, "_notify") as mock_notify:
             await btn.async_press()
@@ -210,16 +210,16 @@ class TestEW11ConfigureButton:
         api.configure_uart.assert_not_awaited()
 
 
-# ── EW11ValidateButton ────────────────────────────────────────────
-class TestEW11ValidateButton:
+# ── RS485BridgeValidateButton ────────────────────────────────────────────
+class TestRS485BridgeValidateButton:
     """Tests for the validate button."""
 
     def test_enabled_by_default(self):
         hass = MagicMock()
-        api = MagicMock(spec=EW11Api)
+        api = MagicMock(spec=RS485BridgeApi)
         lock = asyncio.Lock()
         device_info = MagicMock()
-        btn = EW11ValidateButton(
+        btn = RS485BridgeValidateButton(
             hass, api, lock, TEST_HOST, TEST_PORT, device_info, "test_entry",
         )
         # Should NOT have _attr_entity_registry_enabled_default = False
@@ -227,15 +227,15 @@ class TestEW11ValidateButton:
                btn._attr_entity_registry_enabled_default is True
 
     @pytest.mark.asyncio
-    async def test_press_creates_notification(self, good_ew11_config):
+    async def test_press_creates_notification(self, good_bridge_config):
         hass = MagicMock()
-        api = AsyncMock(spec=EW11Api)
-        api.validate_config.return_value = EW11ValidationResult(
-            reachable=True, auth_ok=True, config=good_ew11_config,
+        api = AsyncMock(spec=RS485BridgeApi)
+        api.validate_config.return_value = RS485BridgeValidationResult(
+            reachable=True, auth_ok=True, config=good_bridge_config,
         )
         lock = asyncio.Lock()
         device_info = MagicMock()
-        btn = EW11ValidateButton(
+        btn = RS485BridgeValidateButton(
             hass, api, lock, TEST_HOST, TEST_PORT, device_info, "test_entry",
         )
 
@@ -248,10 +248,10 @@ class TestEW11ValidateButton:
     @pytest.mark.asyncio
     async def test_press_skipped_when_locked(self):
         hass = MagicMock()
-        api = AsyncMock(spec=EW11Api)
+        api = AsyncMock(spec=RS485BridgeApi)
         lock = asyncio.Lock()
         device_info = MagicMock()
-        btn = EW11ValidateButton(
+        btn = RS485BridgeValidateButton(
             hass, api, lock, TEST_HOST, TEST_PORT, device_info, "test_entry",
         )
 

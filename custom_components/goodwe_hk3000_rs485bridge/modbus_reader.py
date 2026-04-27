@@ -1,4 +1,4 @@
-"""Modbus reader for GoodWe HK3000 Smart Meter via Elfin EW11."""
+"""Modbus reader for GoodWe HK3000 Smart Meter via Elfin RS485 bridge."""
 
 import inspect
 import logging
@@ -39,14 +39,14 @@ def u32(hi: int, lo: int) -> int:
 
 
 class HK3000Reader:
-    """Reader for GoodWe HK3000 meter via Elfin EW11 TCP/RTU bridge."""
+    """Reader for GoodWe HK3000 meter via Elfin RS485 bridge TCP/RTU bridge."""
 
     def __init__(self, host: str, port: int, slave_id: int, timeout: float = 1.5):
         """Initialize the reader.
         
         Args:
-            host: IP address of the Elfin EW11 bridge
-            port: TCP port of the EW11 bridge
+            host: IP address of the RS485 bridge
+            port: TCP port of the RS485 bridge
             slave_id: Modbus slave ID of the HK3000 meter
             timeout: Connection timeout in seconds
         """
@@ -83,11 +83,11 @@ class HK3000Reader:
         return 'slave'
 
     def connect(self) -> bool:
-        """Connect to the EW11 bridge.
+        """Connect to the RS485 bridge.
         
         Forces any stale connection closed first to handle HA restarts
-        where the EW11 may still hold the old TCP socket. After connecting,
-        flushes any stale bytes the EW11 may have buffered from a previous
+        where the bridge may still hold the old TCP socket. After connecting,
+        flushes any stale bytes the bridge may have buffered from a previous
         session to prevent slave-ID mismatches on the first real read.
         
         Returns:
@@ -110,8 +110,8 @@ class HK3000Reader:
         if not self.client.connect():
             return False
 
-        # Flush any stale data the EW11 buffered from a previous session.
-        # Read raw bytes from the socket with a short timeout — if the EW11
+        # Flush any stale data the bridge buffered from a previous session.
+        # Read raw bytes from the socket with a short timeout — if the bridge
         # has leftover Modbus response bytes they'll be consumed and discarded.
         try:
             sock = self.client.socket
@@ -121,7 +121,7 @@ class HK3000Reader:
                     stale = sock.recv(1024)
                     if stale:
                         _LOGGER.debug(
-                            "Flushed %d stale bytes from EW11 buffer", len(stale)
+                            "Flushed %d stale bytes from bridge buffer", len(stale)
                         )
                 except (TimeoutError, OSError):
                     pass  # No stale data — good
@@ -141,7 +141,7 @@ class HK3000Reader:
                 pass
 
     def disconnect(self) -> None:
-        """Disconnect from the EW11 bridge."""
+        """Disconnect from the RS485 bridge."""
         if self.client:
             self.client.close()
             self.client = None
@@ -161,13 +161,13 @@ class HK3000Reader:
             Tuple of (data_dict, warnings_list). If error, data_dict is None.
         """
         if not self.is_connected():
-            return None, ["Not connected to EW11"]
+            return None, ["Not connected to bridge"]
 
         warnings = []
 
         # Read compact block (instantaneous data) with retry.
         # Keep total blocking time short — at 9600 baud a 23-register
-        # response is ~50ms, so 1.5s timeout is generous.  The EW11's
+        # response is ~50ms, so 1.5s timeout is generous.  The bridge's
         # gapTime (50ms) can split responses mid-stream, so retries
         # are essential.
         resp = None
@@ -194,7 +194,7 @@ class HK3000Reader:
                         len(resp.registers), COMPACT_COUNT, attempt + 1, max_attempts
                     )
                     resp = None
-                    # Add small delay between retries to let EW11 buffer settle
+                    # Add small delay between retries to let bridge buffer settle
                     if attempt < max_attempts - 1:
                         time.sleep(0.1)
                     continue

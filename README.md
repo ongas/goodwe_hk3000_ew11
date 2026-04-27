@@ -1,6 +1,6 @@
-# GoodWe HK3000 EW11 — Home Assistant Integration
+# GoodWe HK3000 Smart Meter — Home Assistant Integration
 
-Real-time monitoring of **GoodWe HK3000** 3-phase smart meter electrical data via **Elfin EW11** WiFi-RS485 bridge integration for Home Assistant.
+Real-time monitoring of **GoodWe HK3000** 3-phase smart meter electrical data via an RS485 TCP bridge (such as Elfin EE10, EW11, etc.) for Home Assistant.
 
 ## Features
 
@@ -17,15 +17,27 @@ Real-time monitoring of **GoodWe HK3000** 3-phase smart meter electrical data vi
 - Import/export kWh totals
 - Reactive and apparent energy
 
-**Automatic polling**
-- Configurable update interval (default 1s)
-- Failed connection auto-recovery
+**Robust polling**
+- Configurable update interval (default 1s, supports sub-second)
+- Automatic retry with up to 3 attempts per poll cycle
+- Stale-data caching — entities stay available during transient failures (up to 30s)
+- Executor timeout protection — hung sockets cannot block the coordinator
+- Jittered inter-read delay to reduce RS485 bus contention with the inverter
+- Stale-byte flush on connect to prevent leftover data from previous sessions
+- Automatic reconnection after consecutive failures
+
+**Bridge management buttons**
+- **Bridge Restart** — restart the bridge device remotely
+- **Update Bridge Config Now** — auto-configure UART settings for HK3000 communication, with SOCK corruption detection
+- **Bridge Validate Config** — check bridge UART/SOCK settings against requirements
 
 **Full HA integration**
 - Config flow setup (no YAML needed)
 - Proper entity naming and units
 - Device info with serial number
 - State classes for energy/measurement sensors
+- Graceful startup — integration loads even if bridge is unreachable, retries in background
+- Background startup validation of bridge configuration
 
 ## Installation
 
@@ -34,34 +46,35 @@ Real-time monitoring of **GoodWe HK3000** 3-phase smart meter electrical data vi
 1. Open **HACS** in Home Assistant
 2. Click **Integrations**
 3. Click the **⋮** menu → **Custom repositories**
-4. Add repository: `https://github.com/ongas/goodwe_hk3000_ew11`
+4. Add repository: `https://github.com/ongas/goodwe_hk3000_rs485bridge`
 5. Select category: **Integration**
 6. Click **Add**
-7. Search for **"GoodWe HK3000 EW11"** in HACS
+7. Search for **"GoodWe HK3000 Smart Meter"** in HACS
 8. Click **Download**
 9. Restart Home Assistant (**Settings → System → Restart**)
 10. Go to **Settings → Devices & Services → Create Integration**
-11. Search for **"GoodWe HK3000 EW11"** and follow the config flow
+11. Search for **"GoodWe HK3000 Smart Meter"** and follow the config flow
 
-During configuration, you only **need to enter the EW11's IP address**. All other settings have sensible defaults:
-- **EW11 TCP Port**: defaults to `8899`
+During configuration, you only **need to enter the bridge's IP address**. All other settings have sensible defaults:
+- **Bridge TCP Port**: defaults to `8899`
 - **HK3000 Modbus Address**: defaults to `3`
 - **Update Interval**: defaults to `1` second
+- **Bridge Username/Password**: defaults to `admin`/`admin` (for bridge web API access)
 
 ### Option 2: Manual Installation
 
-1. Download the latest release from [GitHub](https://github.com/ongas/goodwe_hk3000_ew11/releases)
+1. Download the latest release from [GitHub](https://github.com/ongas/goodwe_hk3000_rs485bridge/releases)
 2. Extract the ZIP file
-3. Copy the `goodwe_hk3000_ew11` folder to `~/.homeassistant/custom_components/`
+3. Copy the `goodwe_hk3000_rs485bridge` folder to `~/.homeassistant/custom_components/`
 4. Restart Home Assistant (**Settings → System → Restart**)
 5. Go to **Settings → Devices & Services → Create Integration**
-6. Search for **"GoodWe HK3000 EW11"** and follow the config flow
+6. Search for **"GoodWe HK3000 Smart Meter"** and follow the config flow
 
 ### Option 3: Git Clone
 
 ```bash
 cd ~/.homeassistant/custom_components
-git clone https://github.com/ongas/goodwe_hk3000_ew11.git goodwe_hk3000_ew11
+git clone https://github.com/ongas/goodwe_hk3000_rs485bridge.git goodwe_hk3000_rs485bridge
 ```
 
 Then restart Home Assistant and add the integration via UI.
@@ -72,20 +85,22 @@ Once installed, add the integration via the UI:
 
 1. Go to **Settings → Devices & Services**
 2. Click **Create Integration**
-3. Search for **"GoodWe HK3000 EW11"**
+3. Search for **"GoodWe HK3000 Smart Meter"**
 4. Follow the config flow:
-   - **EW11 IP Address**: e.g., `192.168.1.100`
-   - **EW11 TCP Port**: default `8899`
+   - **Bridge IP Address**: e.g., `192.168.1.100`
+   - **Bridge TCP Port**: default `8899`
    - **HK3000 Modbus Address**: default `3`
    - **Update Interval**: default `1` second
+   - **Bridge Username**: default `admin` (for bridge web API)
+   - **Bridge Password**: default `admin`
 
 ## Hardware Setup
 
-### Elfin EW11 Configuration
+### RS485 TCP Bridge Configuration
 
-The EW11 must be in **transparent mode** for this integration to work.
+Any HI-Flying Elfin RS485 TCP bridge (such as EE10, EW11, etc.) must be in **transparent mode** for this integration to work. The examples below use an Elfin EW11 — settings are identical across all Elfin models.
 
-**Serial Settings** (`http://<EW11-IP>/uart.html`):
+**Serial Settings** (`http://<bridge-IP>/uart.html`):
 - Baud Rate: **9600**
 - Data Bits: **8**
 - Stop Bits: **1**
@@ -95,7 +110,7 @@ The EW11 must be in **transparent mode** for this integration to work.
 - Flow Control: **None**
 - **UART Protocol: NONE**
 
-**Socket Settings** (`http://<EW11-IP>/socket.html`):
+**Socket Settings** (`http://<bridge-IP>/socket.html`):
 - Protocol: **TCP-SERVER**
 - Local Port: **8899**
 - Timeout: **0** (no timeout)
@@ -103,7 +118,9 @@ The EW11 must be in **transparent mode** for this integration to work.
 
 ### AutoConfiguration via Integration
 
-The integration can configure the EW11 automatically. After adding the integration, run the **Configure EW11** service from the integration page.
+The integration can configure the bridge's UART settings automatically. After adding the integration, enable the **Update Bridge Config Now** button entity and press it — it will write the required UART settings, verify SOCK was not corrupted, and restart the bridge to apply changes. Results are reported via persistent notifications.
+
+The **Bridge Validate Config** button performs a read-only check of all bridge settings against requirements without writing anything.
 
 ## Entities Created
 
@@ -157,20 +174,22 @@ All entities are created automatically with proper naming and units:
 
 ## Troubleshooting
 
-### "Cannot connect to EW11"
-- Verify EW11 IP and port (default 8899)
-- Check network connectivity: `ping <EW11-IP>`
-- Verify EW11 is powered on and connected to WiFi
+### "Cannot connect to bridge"
+- Verify bridge IP and port (default 8899)
+- Check network connectivity: `ping <bridge-IP>`
+- Verify bridge is powered on and connected to the network
 - Confirm Modbus address is correct (default 3)
+- The integration will keep retrying automatically — check logs for recovery
 
 ### Entities show `unavailable`
-- Check HomeAssistant logs for Modbus errors
-- Verify EW11 is in **transparent mode** (UART Protocol = NONE)
-- Ensure TCP port 8899 is open between HA and EW11
+- Check Home Assistant logs for Modbus errors
+- Verify bridge is in **transparent mode** (UART Protocol = NONE)
+- Ensure TCP port 8899 is open between HA and the bridge
 - Try increasing update interval if communication is unstable
+- Entities go unavailable after 30 seconds of consecutive failures — they recover automatically once communication is restored
 
 ### Readings seem wrong
-- Verify HK3000 is connected to EW11 via RS485 (A/B terminals)
+- Verify HK3000 is connected to the bridge via RS485 (A/B terminals)
 - Check HK3000 Modbus address DIP switches (should be address 3)
 - Review sanity checks in logs — voltage/frequency warnings indicate meter issues
 
@@ -198,8 +217,8 @@ All entities are created automatically with proper naming and units:
          TCP (port 8899)
               │
     ┌─────────▼──────────┐
-    │  Elfin EW11        │
-    │ (WiFi/RS485 Bridge)│
+    │  RS485 TCP Bridge  │
+    │  (e.g. Elfin EW11) │
     │ (Transparent Mode) │
     └─────────┬──────────┘
               │
@@ -230,22 +249,24 @@ All entities are created automatically with proper naming and units:
 
 > **Note:** FC 0x04 (read input registers) does not work reliably on the HK3000 — it returns the same 17 registers regardless of the address or count requested.
 
-#### Elfin EW11 WiFi-RS485 Bridge
+#### RS485 TCP Bridge (such as EE10, EW11, etc.)
 
 | Property         | Value                    |
 |------------------|--------------------------|
-| Model            | Elfin EW11               |
+| Model            | HI-Flying Elfin RS485 TCP bridge (EE10, EW11, EW11A, etc.) |
 | TCP port         | 8899                     |
 
 #### GoodWe Inverter
 
-The GoodWe inverter is connected to the same RS485 terminals on the HK3000. Testing confirmed **zero bus contention** — 200 rapid sequential polls to the meter completed with 0 failures while the inverter was simultaneously active and producing power. This demonstrates that despite sharing physical RS485 terminals, the inverter and the EW11 WiFi bridge do not cause collisions. The inverter likely communicates with the meter through a separate internal channel or via a different communication method.
+The GoodWe inverter is connected to the same RS485 terminals on the HK3000. Testing with an Elfin EW11 showed **no observed bus contention** — 200 rapid sequential polls to the meter completed with 0 failures while the inverter was simultaneously active and producing power. The inverter likely communicates with the meter through a separate internal channel or via a different communication method.
 
-### EW11 Configuration Details
+As a precaution, the integration adds a small jittered delay between the instantaneous-data read and the energy-totals read to reduce the chance of collisions on the RS485 bus.
 
-The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames (with CRC) over TCP — the default "Modbus" mode adds its own framing that breaks communication.
+### Bridge Configuration Details
 
-**Serial Port Settings** (`http://<your-EW11-IP-Address>/uart.html`):
+The bridge must be set to **transparent mode** so it passes raw Modbus RTU frames (with CRC) over TCP — the default "Modbus" mode adds its own framing that breaks communication. The examples below use an Elfin EW11; settings are identical across all Elfin models.
+
+**Serial Port Settings** (`http://<your-bridge-IP-Address>/uart.html`):
 
 | Field             | Required Value     | Options                          |
 |-------------------|--------------------|----------------------------------|
@@ -259,11 +280,11 @@ The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames 
 | UART Protocol     | **NONE**           | **NONE**, Modbus, Frame            |
 | CLI Access        | Disable            | **Disable**, Serial-String, Always |
 
-> `UART Protocol` must be set to `NONE` (transparent mode). If set to `Modbus`, the EW11 adds Modbus TCP framing and will not pass raw RTU frames correctly.
+> `UART Protocol` must be set to `NONE` (transparent mode). If set to `Modbus`, the bridge adds Modbus TCP framing and will not pass raw RTU frames correctly.
 
-> ⚠️ **Gap Time must be 100 ms or higher.** At 9600 baud, a full 23-register Modbus RTU response (~51 bytes) takes ~53 ms to transmit. If Gap Time is lower than the transmission time (e.g. the 50 ms default), the EW11 detects a false "silence gap" mid-response and splits it into two TCP packets, causing incomplete reads.
+> ⚠️ **Gap Time must be 100 ms or higher.** At 9600 baud, a full 23-register Modbus RTU response (~51 bytes) takes ~53 ms to transmit. If Gap Time is lower than the transmission time (e.g. the 50 ms default), the bridge detects a false "silence gap" mid-response and splits it into two TCP packets, causing incomplete reads.
 
-**Socket Settings** (`http://<your-EW11-IP-Address>/socket.html`):
+**Socket Settings** (`http://<your-bridge-IP-Address>/socket.html`):
 
 | Field             | Required Value     | Options                          |
 |-------------------|--------------------|----------------------------------|
@@ -272,13 +293,15 @@ The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames 
 | Buffer Size       | 512                | min 32                            |
 | Keep Alive (s)    | 60                 | 0–2147483647                      |
 | Timeout (s)       | **0** (disabled)   | 0–600 (0 = no timeout)           |
-| Max Connections   | 1                  | 1–20                              |
+| Max Connections   | **3**              | 1–20                              |
 | Route             | **uart**           | **uart**, log, custom             |
 | Security          | **Disable**        | **Disable**, TLS, AES, DES3       |
 
-> **Note:** The EW11 drops idle TCP connections. This integration manages reconnecting.
+> **Note:** Max Connections should be set to **3** (not 1) to allow the integration, the bridge web UI, and the autoconfigure feature to connect simultaneously without dropping each other.
 
-**System / WiFi Settings** (`http://<your-EW11-IP-Address>/system.html`):
+> **Note:** The bridge drops idle TCP connections. This integration manages reconnecting automatically.
+
+**System / WiFi Settings** (`http://<your-bridge-IP-Address>/system.html`):
 
 | Field             | Required Value                    |
 |-------------------|-----------------------------------|
@@ -287,15 +310,20 @@ The EW11 must be set to **transparent mode** so it passes raw Modbus RTU frames 
 | WiFi SSID         | Your WiFi network name            |
 | WiFi Key          | Your WiFi password                |
 
-**EW11 Web API** (Advanced programmatic configuration at `POST http://<your-EW11-IP-Address>/cmd` with Basic auth: admin/admin):
+**Bridge Web API** (Advanced programmatic configuration at `POST http://<your-bridge-IP-Address>/cmd` with Basic auth: admin/admin):
 
-| CID   | Purpose       | Example Payload                                   |
-|-------|---------------|---------------------------------------------------|
-| 10001 | Get state     | `{"CID":10001,"PL":{}}`                           |
-| 10003 | Get config    | `{"CID":10003,"PL":{}}`                           |
-| 10005 | Set config    | `{"CID":10005,"PL":{"UartProto":"NONE"}}`         |
-| 20001 | Reload config | `{"CID":20001,"PL":{}}`                           |
-| 20003 | Restart       | `{"CID":20003,"PL":{}}`                           |
+| CID   | Purpose         | Example Payload                                   |
+|-------|-----------------|---------------------------------------------------|
+| 10001 | Get state       | `{"CID":10001,"PL":{}}`                           |
+| 10003 | Get config      | `{"CID":10003,"PL":{}}`                           |
+| 10005 | Set config      | `{"CID":10005,"PL":{"UartProto":"NONE"}}`         |
+| 10007 | Export XML config | `{"CID":10007,"PL":{}}` _(then fetch `/EW11.xml`)_ |
+| 20001 | Reload config   | `{"CID":20001,"PL":{}}`                           |
+| 20003 | Restart         | `{"CID":20003,"PL":{}}`                           |
+
+> **Note:** This integration uses CID 10007 + `/EW11.xml` to read config (all Elfin models serve this path regardless of model), CID 10005 to write UART settings, and CID 20003 to restart.
+
+> ⚠️ **CID 10005 SOCK bug:** Writing SOCK settings via CID 10005 is known to corrupt socket values on some firmware versions. This integration **never writes SOCK config** — only UART writes are performed, and every write is followed by a full config re-read to verify SOCK was not affected.
 
 
 ### HK3000 Register Map — Compact Block (Instantaneous Electrical Data)
@@ -364,4 +392,4 @@ MIT License — see LICENSE file for details.
 ## Support
 
 Issues, feature requests, or contributions welcome on GitHub:  
-https://github.com/ongas/goodwe_hk3000_ew11
+https://github.com/ongas/goodwe_hk3000_rs485bridge

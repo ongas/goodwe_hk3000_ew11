@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from custom_components.goodwe_hk3000_ew11.coordinator import (
+from custom_components.goodwe_hk3000_rs485bridge.coordinator import (
     HK3000Coordinator,
     MAX_STALE_SECONDS,
     POLL_TIMEOUT_SECONDS,
@@ -29,7 +29,7 @@ def _make_coordinator(hass=None) -> HK3000Coordinator:
     coord._last_valid_data = None
     coord._last_success_mono = None
     coord._executor_busy = False
-    coord.name = "goodwe_hk3000_ew11"
+    coord.name = "goodwe_hk3000_rs485bridge"
     coord.logger = MagicMock()
     coord.last_update_success = True
     return coord

@@ -1,4 +1,4 @@
-"""Button entities for GoodWe HK3000 Smart Meter via EW11."""
+"""Button entities for GoodWe HK3000 Smart Meter via RS485 bridge."""
 
 import asyncio
 import logging
@@ -10,28 +10,28 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    CONF_EW11_PASSWORD,
-    CONF_EW11_USERNAME,
+    CONF_BRIDGE_PASSWORD,
+    CONF_BRIDGE_USERNAME,
     CONF_HOST,
     CONF_PORT,
-    DEFAULT_EW11_PASSWORD,
-    DEFAULT_EW11_USERNAME,
+    DEFAULT_BRIDGE_PASSWORD,
+    DEFAULT_BRIDGE_USERNAME,
     DEFAULT_PORT,
     DOMAIN,
 )
-from .ew11_api import EW11Api, EW11ApiError, EW11SockCorruptedError, EW11ValidationResult
+from .bridge_api import RS485BridgeApi, RS485BridgeApiError, RS485BridgeSockCorruptedError, RS485BridgeValidationResult
 
 _LOGGER = logging.getLogger(__name__)
 
-# Shared lock per config entry to prevent overlapping EW11 operations
-_ew11_locks: dict[str, asyncio.Lock] = {}
+# Shared lock per config entry to prevent overlapping Bridge operations
+_bridge_locks: dict[str, asyncio.Lock] = {}
 
 
 def _get_lock(entry_id: str) -> asyncio.Lock:
-    """Get or create a per-entry lock for EW11 operations."""
-    if entry_id not in _ew11_locks:
-        _ew11_locks[entry_id] = asyncio.Lock()
-    return _ew11_locks[entry_id]
+    """Get or create a per-entry lock for Bridge operations."""
+    if entry_id not in _bridge_locks:
+        _bridge_locks[entry_id] = asyncio.Lock()
+    return _bridge_locks[entry_id]
 
 
 async def async_setup_entry(
@@ -42,10 +42,10 @@ async def async_setup_entry(
     """Set up button entities from config entry."""
     host = entry.data[CONF_HOST]
     port = entry.data.get(CONF_PORT, DEFAULT_PORT)
-    username = entry.data.get(CONF_EW11_USERNAME, DEFAULT_EW11_USERNAME)
-    password = entry.data.get(CONF_EW11_PASSWORD, DEFAULT_EW11_PASSWORD)
+    username = entry.data.get(CONF_BRIDGE_USERNAME, DEFAULT_BRIDGE_USERNAME)
+    password = entry.data.get(CONF_BRIDGE_PASSWORD, DEFAULT_BRIDGE_PASSWORD)
 
-    api = EW11Api(host, username, password)
+    api = RS485BridgeApi(host, username, password)
     lock = _get_lock(entry.entry_id)
     device_info = DeviceInfo(
         identifiers={(DOMAIN, f"{host}:{port}")},
@@ -55,14 +55,14 @@ async def async_setup_entry(
     )
 
     async_add_entities([
-        EW11RestartButton(api, lock, host, port, device_info),
-        EW11ConfigureButton(hass, api, lock, host, port, device_info, entry.entry_id),
-        EW11ValidateButton(hass, api, lock, host, port, device_info, entry.entry_id),
+        RS485BridgeRestartButton(api, lock, host, port, device_info),
+        RS485BridgeConfigureButton(hass, api, lock, host, port, device_info, entry.entry_id),
+        RS485BridgeValidateButton(hass, api, lock, host, port, device_info, entry.entry_id),
     ])
 
 
-class EW11RestartButton(ButtonEntity):
-    """Button to restart the EW11 WiFi-RS485 bridge."""
+class RS485BridgeRestartButton(ButtonEntity):
+    """Button to restart the RS485 bridge."""
 
     _attr_device_class = ButtonDeviceClass.RESTART
     _attr_entity_category = EntityCategory.CONFIG
@@ -71,7 +71,7 @@ class EW11RestartButton(ButtonEntity):
 
     def __init__(
         self,
-        api: EW11Api,
+        api: RS485BridgeApi,
         lock: asyncio.Lock,
         host: str,
         port: int,
@@ -79,39 +79,39 @@ class EW11RestartButton(ButtonEntity):
     ) -> None:
         self._api = api
         self._lock = lock
-        self._attr_name = "EW11 Restart"
-        self._attr_unique_id = f"{host}_{port}_ew11_restart"
+        self._attr_name = "Bridge Restart"
+        self._attr_unique_id = f"{host}_{port}_bridge_restart"
         self._attr_device_info = device_info
 
     async def async_press(self) -> None:
-        """Restart the EW11 device."""
+        """Restart the bridge device."""
         if self._lock.locked():
-            _LOGGER.warning("EW11 operation already in progress, ignoring restart")
+            _LOGGER.warning("Bridge operation already in progress, ignoring restart")
             return
 
         async with self._lock:
             try:
                 await self._api.restart()
-                _LOGGER.info("EW11 restart command sent successfully")
-            except EW11ApiError as err:
-                _LOGGER.error("EW11 restart failed: %s", err)
+                _LOGGER.info("Bridge restart command sent successfully")
+            except RS485BridgeApiError as err:
+                _LOGGER.error("Bridge restart failed: %s", err)
             except Exception:
-                _LOGGER.exception("Unexpected error restarting EW11")
+                _LOGGER.exception("Unexpected error restarting bridge")
 
 
-class EW11ConfigureButton(ButtonEntity):
-    """Button to configure EW11 UART settings for HK3000 communication."""
+class RS485BridgeConfigureButton(ButtonEntity):
+    """Button to configure Bridge UART settings for HK3000 communication."""
 
     _attr_entity_category = EntityCategory.CONFIG
     _attr_entity_registry_enabled_default = False
     _attr_icon = "mdi:cog"
 
-    _NOTIFICATION_ID = "goodwe_hk3000_ew11_configure"
+    _NOTIFICATION_ID = "goodwe_hk3000_rs485bridge_configure"
 
     def __init__(
         self,
         hass: HomeAssistant,
-        api: EW11Api,
+        api: RS485BridgeApi,
         lock: asyncio.Lock,
         host: str,
         port: int,
@@ -123,11 +123,11 @@ class EW11ConfigureButton(ButtonEntity):
         self._lock = lock
         self._host = host
         self._entry_id = entry_id
-        self._attr_name = "Update EW11 Config Now"
-        self._attr_unique_id = f"{host}_{port}_ew11_configure"
+        self._attr_name = "Update Bridge Config Now"
+        self._attr_unique_id = f"{host}_{port}_bridge_configure"
         self._attr_device_info = device_info
 
-    def _notify(self, message: str, title: str = "EW11 Configuration") -> None:
+    def _notify(self, message: str, title: str = "Bridge Configuration") -> None:
         """Create a persistent notification with a stable ID."""
         from homeassistant.components.persistent_notification import async_create
         async_create(
@@ -136,43 +136,43 @@ class EW11ConfigureButton(ButtonEntity):
         )
 
     async def async_press(self) -> None:
-        """Configure EW11 UART settings and restart if needed."""
+        """Configure bridge UART settings and restart if needed."""
         if self._lock.locked():
             _LOGGER.warning(
-                "EW11 operation already in progress, ignoring configure"
+                "Bridge operation already in progress, ignoring configure"
             )
             return
 
         async with self._lock:
             try:
                 result = await self._api.configure_uart()
-            except EW11SockCorruptedError as err:
+            except RS485BridgeSockCorruptedError as err:
                 msg = (
                     f"⚠️ **SOCK settings were corrupted** during UART write!\n\n"
                     f"{err}\n\n"
-                    f"The EW11 may need a factory reset. Check the EW11 web UI "
+                    f"The bridge may need a factory reset. Check the bridge web UI "
                     f"at http://{self._host}/ and verify socket settings."
                 )
-                _LOGGER.error("EW11 SOCK corrupted: %s", err)
-                self._notify(msg, title="EW11 Configuration — ERROR")
+                _LOGGER.error("Bridge SOCK corrupted: %s", err)
+                self._notify(msg, title="Bridge Configuration — ERROR")
                 return
-            except EW11ApiError as err:
-                _LOGGER.error("EW11 configure failed: %s", err)
+            except RS485BridgeApiError as err:
+                _LOGGER.error("Bridge configure failed: %s", err)
                 self._notify(
                     f"❌ Configuration failed: {err}",
-                    title="EW11 Configuration — ERROR",
+                    title="Bridge Configuration — ERROR",
                 )
                 return
             except Exception:
-                _LOGGER.exception("Unexpected error configuring EW11")
+                _LOGGER.exception("Unexpected error configuring bridge")
                 self._notify(
                     "❌ Unexpected error during configuration. Check HA logs.",
-                    title="EW11 Configuration — ERROR",
+                    title="Bridge Configuration — ERROR",
                 )
                 return
 
             if not result.changed:
-                self._notify("✅ All EW11 UART settings are already correct.")
+                self._notify("✅ All Bridge UART settings are already correct.")
                 return
 
             # Settings were changed — build a summary and restart
@@ -181,20 +181,20 @@ class EW11ConfigureButton(ButtonEntity):
                 for key, (old, new) in result.changed_fields.items()
             )
             _LOGGER.info(
-                "EW11 UART updated, restarting to apply: %s",
+                "Bridge UART updated, restarting to apply: %s",
                 result.changed_fields,
             )
 
             self._notify(
                 f"🔧 UART settings updated:\n{changes}\n\n"
-                f"Restarting EW11 to apply changes…"
+                f"Restarting bridge to apply changes…"
             )
 
             came_back = await self._api.restart_and_wait(max_wait=30)
 
             if came_back:
                 self._notify(
-                    f"✅ EW11 configured and restarted successfully.\n\n"
+                    f"✅ Bridge configured and restarted successfully.\n\n"
                     f"Settings changed:\n{changes}"
                 )
                 # Kick the coordinator to reconnect immediately
@@ -203,38 +203,38 @@ class EW11ConfigureButton(ButtonEntity):
                     await coordinator.async_request_refresh()
             else:
                 self._notify(
-                    f"⚠️ Settings were written but EW11 did not come back "
+                    f"⚠️ Settings were written but Bridge did not come back "
                     f"online within 30 seconds.\n\n"
                     f"Settings changed:\n{changes}\n\n"
-                    f"Check the EW11 at http://{self._host}/",
-                    title="EW11 Configuration — WARNING",
+                    f"Check the Bridge at http://{self._host}/",
+                    title="Bridge Configuration — WARNING",
                 )
 
 
-def format_validation_message(result: EW11ValidationResult, host: str) -> tuple[str, str]:
+def format_validation_message(result: RS485BridgeValidationResult, host: str) -> tuple[str, str]:
     """Format a validation result into (message, title) for notifications.
 
     Shared by both the Validate button and startup check.
     """
     if not result.reachable:
         return (
-            f"❌ EW11 at `{host}` is unreachable.\n\n"
-            f"Check network connectivity and EW11 power.",
-            "EW11 Validation — Unreachable",
+            f"❌ Bridge at `{host}` is unreachable.\n\n"
+            f"Check network connectivity and bridge power.",
+            "Bridge Validation — Unreachable",
         )
 
     if not result.auth_ok:
         return (
-            f"🔒 EW11 authentication failed.\n\n"
+            f"🔒 Bridge authentication failed.\n\n"
             f"Update credentials in integration options "
             f"(Settings → Integrations → GoodWe HK3000 → Configure).",
-            "EW11 Validation — Auth Failed",
+            "Bridge Validation — Auth Failed",
         )
 
     if result.error:
         return (
-            f"❌ Error reading EW11 config: {result.error}",
-            "EW11 Validation — Error",
+            f"❌ Error reading Bridge config: {result.error}",
+            "Bridge Validation — Error",
         )
 
     parts: list[str] = []
@@ -248,7 +248,7 @@ def format_validation_message(result: EW11ValidationResult, host: str) -> tuple[
         )
         parts.append(
             f"⚠️ UART settings need fixing:\n{issues}\n\n"
-            f"Press the **EW11 Configure** button to fix automatically."
+            f"Press the **Bridge Configure** button to fix automatically."
         )
 
     if not result.sock_ok:
@@ -259,29 +259,29 @@ def format_validation_message(result: EW11ValidationResult, host: str) -> tuple[
         parts.append(
             f"⚠️ SOCK settings are incorrect:\n{issues}\n\n"
             f"These cannot be fixed automatically. "
-            f"Check the EW11 web UI at http://{host}/"
+            f"Check the bridge web UI at http://{host}/"
         )
 
     if result.all_ok:
-        title = "EW11 Validation — OK"
+        title = "Bridge Validation — OK"
     else:
-        title = "EW11 Validation — Issues Found"
+        title = "Bridge Validation — Issues Found"
 
     return "\n\n".join(parts), title
 
 
-class EW11ValidateButton(ButtonEntity):
-    """Button to validate EW11 configuration against requirements."""
+class RS485BridgeValidateButton(ButtonEntity):
+    """Button to validate bridge configuration against requirements."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:check-network"
 
-    _NOTIFICATION_ID = "goodwe_hk3000_ew11_validate"
+    _NOTIFICATION_ID = "goodwe_hk3000_rs485bridge_validate"
 
     def __init__(
         self,
         hass: HomeAssistant,
-        api: EW11Api,
+        api: RS485BridgeApi,
         lock: asyncio.Lock,
         host: str,
         port: int,
@@ -293,14 +293,14 @@ class EW11ValidateButton(ButtonEntity):
         self._lock = lock
         self._host = host
         self._entry_id = entry_id
-        self._attr_name = "EW11 Validate Config"
-        self._attr_unique_id = f"{host}_{port}_ew11_validate"
+        self._attr_name = "Bridge Validate Config"
+        self._attr_unique_id = f"{host}_{port}_bridge_validate"
         self._attr_device_info = device_info
 
     async def async_press(self) -> None:
-        """Validate EW11 config and report via persistent notification."""
+        """Validate bridge config and report via persistent notification."""
         if self._lock.locked():
-            _LOGGER.warning("EW11 operation already in progress, ignoring validate")
+            _LOGGER.warning("Bridge operation already in progress, ignoring validate")
             return
 
         async with self._lock:
@@ -315,6 +315,6 @@ class EW11ValidateButton(ButtonEntity):
         )
 
         if result.all_ok:
-            _LOGGER.info("EW11 validation passed — all settings correct")
+            _LOGGER.info("Bridge validation passed — all settings correct")
         else:
-            _LOGGER.warning("EW11 validation found issues: %s", message)
+            _LOGGER.warning("Bridge validation found issues: %s", message)

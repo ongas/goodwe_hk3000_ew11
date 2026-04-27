@@ -1,8 +1,8 @@
-"""Constants for GoodWe HK3000 Smart Meter via EW11 integration."""
+"""Constants for GoodWe HK3000 Smart Meter via RS485 bridge integration."""
 
 from enum import Enum
 
-DOMAIN = "goodwe_hk3000_ew11"
+DOMAIN = "goodwe_hk3000_rs485bridge"
 
 # Default configuration
 DEFAULT_NAME = "GoodWe HK3000"
@@ -70,11 +70,11 @@ CONF_PORT = "port"
 CONF_SLAVE_ID = "slave_id"
 CONF_UPDATE_INTERVAL = "update_interval"
 
-# EW11 web interface credentials (optional)
-CONF_EW11_USERNAME = "ew11_username"
-CONF_EW11_PASSWORD = "ew11_password"
-DEFAULT_EW11_USERNAME = "admin"
-DEFAULT_EW11_PASSWORD = "admin"
+# RS485 bridge web interface credentials (optional)
+CONF_BRIDGE_USERNAME = "bridge_username"
+CONF_BRIDGE_PASSWORD = "bridge_password"
+DEFAULT_BRIDGE_USERNAME = "admin"
+DEFAULT_BRIDGE_PASSWORD = "admin"
 
 # Entity category and units
 ENTITY_CATEGORY_CONFIG = "config"

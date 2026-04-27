@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 try:
-    from custom_components.goodwe_hk3000_ew11.config_flow import _test_connection
+    from custom_components.goodwe_hk3000_rs485bridge.config_flow import _test_connection
     _HAS_CONFIG_FLOW = True
 except ImportError:
     _HAS_CONFIG_FLOW = False
@@ -28,7 +28,7 @@ class TestConfigFlowTestConnection:
 
     def test_connection_success(self):
         with patch(
-            "custom_components.goodwe_hk3000_ew11.config_flow.HK3000Reader"
+            "custom_components.goodwe_hk3000_rs485bridge.config_flow.HK3000Reader"
         ) as MockReader:
             instance = MockReader.return_value
             instance.connect.return_value = True
@@ -37,7 +37,7 @@ class TestConfigFlowTestConnection:
 
     def test_connection_failure(self):
         with patch(
-            "custom_components.goodwe_hk3000_ew11.config_flow.HK3000Reader"
+            "custom_components.goodwe_hk3000_rs485bridge.config_flow.HK3000Reader"
         ) as MockReader:
             instance = MockReader.return_value
             instance.connect.return_value = False
@@ -46,7 +46,7 @@ class TestConfigFlowTestConnection:
 
     def test_connection_exception_still_disconnects(self):
         with patch(
-            "custom_components.goodwe_hk3000_ew11.config_flow.HK3000Reader"
+            "custom_components.goodwe_hk3000_rs485bridge.config_flow.HK3000Reader"
         ) as MockReader:
             instance = MockReader.return_value
             instance.connect.side_effect = RuntimeError("boom")

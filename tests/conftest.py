@@ -1,4 +1,4 @@
-"""Shared test fixtures for GoodWe HK3000 EW11 tests."""
+"""Shared test fixtures for GoodWe HK3000 RS485 bridge tests."""
 
 from __future__ import annotations
 
@@ -7,20 +7,20 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from custom_components.goodwe_hk3000_ew11.const import (
-    CONF_EW11_PASSWORD,
-    CONF_EW11_USERNAME,
+from custom_components.goodwe_hk3000_rs485bridge.const import (
+    CONF_BRIDGE_PASSWORD,
+    CONF_BRIDGE_USERNAME,
     CONF_HOST,
     CONF_PORT,
     CONF_SLAVE_ID,
     CONF_UPDATE_INTERVAL,
-    DEFAULT_EW11_PASSWORD,
-    DEFAULT_EW11_USERNAME,
+    DEFAULT_BRIDGE_PASSWORD,
+    DEFAULT_BRIDGE_USERNAME,
     DOMAIN,
 )
-from custom_components.goodwe_hk3000_ew11.ew11_api import (
-    EW11Config,
-    EW11ValidationResult,
+from custom_components.goodwe_hk3000_rs485bridge.bridge_api import (
+    RS485BridgeConfig,
+    RS485BridgeValidationResult,
     REQUIRED_SOCK,
     REQUIRED_UART,
 )
@@ -35,13 +35,13 @@ MOCK_CONFIG_ENTRY_DATA = {
     CONF_PORT: TEST_PORT,
     CONF_SLAVE_ID: TEST_SLAVE_ID,
     CONF_UPDATE_INTERVAL: 1.0,
-    CONF_EW11_USERNAME: DEFAULT_EW11_USERNAME,
-    CONF_EW11_PASSWORD: DEFAULT_EW11_PASSWORD,
+    CONF_BRIDGE_USERNAME: DEFAULT_BRIDGE_USERNAME,
+    CONF_BRIDGE_PASSWORD: DEFAULT_BRIDGE_PASSWORD,
 }
 
 
-# ── Sample EW11 XML ───────────────────────────────────────────────
-SAMPLE_EW11_XML_OK = """<?xml version="1.0" encoding="utf-8" ?>
+# ── Sample bridge XML ───────────────────────────────────────────────
+SAMPLE_BRIDGE_XML_OK = """<?xml version="1.0" encoding="utf-8" ?>
 <config>
 <SYS name='SysCfg' key='Firmware Version' value='build23092615012212889'>
 <SYS name='SysCfg' key='Device Name' value='EW11A_DC9B'>
@@ -59,12 +59,12 @@ SAMPLE_EW11_XML_OK = """<?xml version="1.0" encoding="utf-8" ?>
 <SOCK name='SOCK0' key='Buffer Size' value='512'>
 </config>"""
 
-SAMPLE_EW11_XML_BAD_UART = SAMPLE_EW11_XML_OK.replace(
+SAMPLE_BRIDGE_XML_BAD_UART = SAMPLE_BRIDGE_XML_OK.replace(
     "key='gapTime Size' value='100'",
     "key='gapTime Size' value='50'",
 )
 
-SAMPLE_EW11_XML_BAD_SOCK = SAMPLE_EW11_XML_OK.replace(
+SAMPLE_BRIDGE_XML_BAD_SOCK = SAMPLE_BRIDGE_XML_OK.replace(
     "key='maxAccept' value='3'",
     "key='maxAccept' value='1'",
 )
@@ -72,24 +72,24 @@ SAMPLE_EW11_XML_BAD_SOCK = SAMPLE_EW11_XML_OK.replace(
 
 # ── Fixtures ───────────────────────────────────────────────────────
 @pytest.fixture
-def good_ew11_config() -> EW11Config:
-    """EW11Config with all settings correct."""
-    from custom_components.goodwe_hk3000_ew11.ew11_api import _parse_ew11_xml
-    return _parse_ew11_xml(SAMPLE_EW11_XML_OK)
+def good_bridge_config() -> RS485BridgeConfig:
+    """RS485BridgeConfig with all settings correct."""
+    from custom_components.goodwe_hk3000_rs485bridge.bridge_api import _parse_bridge_xml
+    return _parse_bridge_xml(SAMPLE_BRIDGE_XML_OK)
 
 
 @pytest.fixture
-def bad_uart_config() -> EW11Config:
-    """EW11Config with gapTime wrong."""
-    from custom_components.goodwe_hk3000_ew11.ew11_api import _parse_ew11_xml
-    return _parse_ew11_xml(SAMPLE_EW11_XML_BAD_UART)
+def bad_uart_config() -> RS485BridgeConfig:
+    """RS485BridgeConfig with gapTime wrong."""
+    from custom_components.goodwe_hk3000_rs485bridge.bridge_api import _parse_bridge_xml
+    return _parse_bridge_xml(SAMPLE_BRIDGE_XML_BAD_UART)
 
 
 @pytest.fixture
-def bad_sock_config() -> EW11Config:
-    """EW11Config with maxAccept wrong."""
-    from custom_components.goodwe_hk3000_ew11.ew11_api import _parse_ew11_xml
-    return _parse_ew11_xml(SAMPLE_EW11_XML_BAD_SOCK)
+def bad_sock_config() -> RS485BridgeConfig:
+    """RS485BridgeConfig with maxAccept wrong."""
+    from custom_components.goodwe_hk3000_rs485bridge.bridge_api import _parse_bridge_xml
+    return _parse_bridge_xml(SAMPLE_BRIDGE_XML_BAD_SOCK)
 
 
 @pytest.fixture

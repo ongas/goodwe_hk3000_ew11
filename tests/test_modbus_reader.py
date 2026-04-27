@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
-from custom_components.goodwe_hk3000_ew11.modbus_reader import (
+from custom_components.goodwe_hk3000_rs485bridge.modbus_reader import (
     HK3000Reader,
     s16,
     u32,
 )
-from custom_components.goodwe_hk3000_ew11.const import COMPACT_COUNT, ENERGY_COUNT
+from custom_components.goodwe_hk3000_rs485bridge.const import COMPACT_COUNT, ENERGY_COUNT
 
 
 # ── Helper functions ───────────────────────────────────────────────
@@ -59,15 +59,15 @@ class TestDetectSlaveParam:
     """Tests for pymodbus version detection."""
 
     def test_old_pymodbus_uses_slave(self):
-        with patch("custom_components.goodwe_hk3000_ew11.modbus_reader.__version__", "3.6.2"):
+        with patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.__version__", "3.6.2"):
             assert HK3000Reader._detect_slave_param() == "slave"
 
     def test_new_pymodbus_uses_device_id(self):
-        with patch("custom_components.goodwe_hk3000_ew11.modbus_reader.__version__", "3.7.0"):
+        with patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.__version__", "3.7.0"):
             assert HK3000Reader._detect_slave_param() == "device_id"
 
     def test_unparseable_version_falls_back(self):
-        with patch("custom_components.goodwe_hk3000_ew11.modbus_reader.__version__", "unknown"):
+        with patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.__version__", "unknown"):
             # Should fall back to signature inspection
             result = HK3000Reader._detect_slave_param()
             assert result in ("slave", "device_id")
@@ -77,7 +77,7 @@ class TestDetectSlaveParam:
 class TestReaderConnect:
     """Tests for reader connect/disconnect lifecycle."""
 
-    @patch("custom_components.goodwe_hk3000_ew11.modbus_reader.ModbusTcpClient")
+    @patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.ModbusTcpClient")
     def test_connect_success(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client.connect.return_value = True
@@ -88,7 +88,7 @@ class TestReaderConnect:
         assert reader.connect() is True
         mock_client.connect.assert_called_once()
 
-    @patch("custom_components.goodwe_hk3000_ew11.modbus_reader.ModbusTcpClient")
+    @patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.ModbusTcpClient")
     def test_connect_failure(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client.connect.return_value = False
@@ -97,7 +97,7 @@ class TestReaderConnect:
         reader = HK3000Reader("192.168.0.67", 8899, 3)
         assert reader.connect() is False
 
-    @patch("custom_components.goodwe_hk3000_ew11.modbus_reader.ModbusTcpClient")
+    @patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.ModbusTcpClient")
     def test_disconnect_closes_client(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client.connect.return_value = True
@@ -110,7 +110,7 @@ class TestReaderConnect:
         mock_client.close.assert_called()
         assert reader.client is None
 
-    @patch("custom_components.goodwe_hk3000_ew11.modbus_reader.ModbusTcpClient")
+    @patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.ModbusTcpClient")
     def test_is_connected(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client.connect.return_value = True
@@ -130,7 +130,7 @@ class TestReadMeterData:
 
     def _make_reader_with_mock(self):
         """Create a reader with mocked client already connected."""
-        with patch("custom_components.goodwe_hk3000_ew11.modbus_reader.ModbusTcpClient"):
+        with patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.ModbusTcpClient"):
             reader = HK3000Reader("192.168.0.67", 8899, 3)
         mock_client = MagicMock()
         mock_client.is_socket_open.return_value = True
@@ -177,7 +177,7 @@ class TestReadMeterData:
         assert data["energy_import"] == 567890 / 100
 
     def test_not_connected_returns_none(self):
-        with patch("custom_components.goodwe_hk3000_ew11.modbus_reader.ModbusTcpClient"):
+        with patch("custom_components.goodwe_hk3000_rs485bridge.modbus_reader.ModbusTcpClient"):
             reader = HK3000Reader("192.168.0.67", 8899, 3)
         reader.client = None
         data, warnings = reader.read_meter_data()

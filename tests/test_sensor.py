@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.goodwe_hk3000_ew11.sensor import HK3000Sensor
-from custom_components.goodwe_hk3000_ew11.const import SensorType
+from custom_components.goodwe_hk3000_rs485bridge.sensor import HK3000Sensor
+from custom_components.goodwe_hk3000_rs485bridge.const import SensorType
 
 
 class TestHK3000Sensor:
